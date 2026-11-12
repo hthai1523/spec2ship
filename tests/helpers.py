@@ -38,17 +38,20 @@ def run_cli(project, *args, env=None):
     return code, out.getvalue(), err.getvalue()
 
 
-def fake_claude_config(base: Path, harness_version="4.12.11", with_figma=True, project=None):
-    """Create an isolated CLAUDE_CONFIG_DIR with a fake Harness install."""
+def fake_claude_config(base: Path, harness_version="4.12.11", with_figma=True, project=None,
+                       plugin_name="claude-code-harness"):
+    """Create an isolated CLAUDE_CONFIG_DIR with a fake Harness install.
+
+    ``plugin_name`` is ``claude-code-harness`` (4.x) or ``harness`` (5.x, renamed upstream)."""
     cfg = base / "claude-config"
-    inst = cfg / "plugins" / "cache" / "claude-code-harness-marketplace" / "claude-code-harness" / harness_version
+    inst = cfg / "plugins" / "cache" / "claude-code-harness-marketplace" / plugin_name / harness_version
     for s in ("harness-plan", "harness-work", "harness-review", "harness-sync"):
         (inst / "skills" / s).mkdir(parents=True, exist_ok=True)
         (inst / "skills" / s / "SKILL.md").write_text(f"---\nname: {s}\n---\n", encoding="utf-8")
     (cfg / "plugins").mkdir(parents=True, exist_ok=True)
     (cfg / "plugins" / "installed_plugins.json").write_text(json.dumps({
         "version": 2,
-        "plugins": {"claude-code-harness@claude-code-harness-marketplace": [
+        "plugins": {f"{plugin_name}@claude-code-harness-marketplace": [
             {"scope": "user", "installPath": str(inst), "version": harness_version}]},
     }), encoding="utf-8")
     if with_figma and project is not None:

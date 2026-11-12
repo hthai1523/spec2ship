@@ -114,6 +114,11 @@ class VerticalSlice(unittest.TestCase):
         self.assertEqual(blocked["decision"], "block")
         denied = hook("pretool", {"cwd": str(self.p), "tool_name": "Skill", "tool_input": {"skill": "breezing"}}, env)
         self.assertEqual(denied["hookSpecificOutput"]["permissionDecision"], "deny")
+        # Harness 5.x namespace (plugin renamed to `harness`) is guarded the same way
+        for prompt_text in ("/harness:harness-work all", "/claude-code-harness:harness-work all"):
+            self.assertEqual(hook("prompt", {"cwd": str(self.p), "prompt": prompt_text}, env)["decision"], "block", prompt_text)
+        denied = hook("pretool", {"cwd": str(self.p), "tool_name": "Skill", "tool_input": {"skill": "harness:harness-work"}}, env)
+        self.assertEqual(denied["hookSpecificOutput"]["permissionDecision"], "deny")
         (self.p / "Plans.md").write_text(progressed, encoding="utf-8")
 
         # Review -> verification with evidence rules
@@ -248,7 +253,7 @@ class PreflightAndInputs(unittest.TestCase):
                 code, out, _ = run_cli(tp.project, "preflight")
             self.assertEqual(code, 2)
             self.assertIn("[FAIL] harness", out)
-            self.assertIn("/plugin install claude-code-harness@claude-code-harness-marketplace", out)
+            self.assertIn("/plugin install harness@claude-code-harness-marketplace", out)
             self.assertIn("[OK  ] figma-mcp-config: bundled with Spec2Ship: npx -y @vkhanhqui/figma-mcp-go@0.1.3", out)
             self.assertIn("mcp__plugin_spec2ship_figma-mcp-go__", out)
             st = json.loads((tp.ws / "state.json").read_text(encoding="utf-8"))

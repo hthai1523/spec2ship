@@ -116,6 +116,15 @@ class DetectTests(unittest.TestCase):
         self.assertEqual(h["version"], "4.12.11")
         self.assertNotIn("warning", h)
 
+    def test_detects_renamed_plugin(self):
+        """Harness 5.x ships as plugin `harness` (renamed from `claude-code-harness`)."""
+        os.environ["CLAUDE_CONFIG_DIR"] = str(fake_claude_config(self.tmp, "5.16.0", plugin_name="harness"))
+        h = ha.detect_harness()
+        self.assertTrue(h["installed"], h)
+        self.assertTrue(h["compatible"], h)
+        self.assertEqual(h["key"], "harness@claude-code-harness-marketplace")
+        self.assertIn("not in the tested list", h["warning"])
+
     def test_old_and_untested_versions(self):
         os.environ["CLAUDE_CONFIG_DIR"] = str(fake_claude_config(self.tmp, "3.9.0"))
         self.assertFalse(ha.detect_harness()["compatible"])
