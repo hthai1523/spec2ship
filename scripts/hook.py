@@ -23,7 +23,7 @@ from s2s.common import now_iso, workspace_path, write_json  # noqa: E402
 
 APPROVAL_ONLY = "Spec2Ship: only the developer can record plan approval (type /spec2ship:spec2ship-approve <hash>)."
 APPROVE_PROMPT = re.compile(r"^\s*/(?:spec2ship:)?spec2ship-approve\b")
-EXEC_PROMPT = re.compile(r"^\s*/(?:claude-code-harness:)?(?:%s)\b" % "|".join(harness_adapter.EXEC_SKILLS))
+EXEC_PROMPT = re.compile(r"^\s*/(?:(?:claude-code-harness|harness):)?(?:%s)\b" % "|".join(harness_adapter.EXEC_SKILLS))
 
 
 def _ws(data):

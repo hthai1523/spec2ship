@@ -22,7 +22,7 @@ claude-code-harness; Spec2Ship then records review/test evidence and writes a de
 |---|---|---|
 | Claude Code | plugin host | 2.1.319 |
 | Python ≥ 3.9 on PATH (`python3` or `python`) | local helper scripts (stdlib only) | 3.14.5 |
-| [claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) plugin | task ledger, Work, Review | 4.12.11 (≥ 4.0 accepted) |
+| [Harness](https://github.com/Chachamaru127/claude-code-harness) plugin (`harness`, formerly `claude-code-harness`) | task ledger, Work, Review | Plans.md format verified on 4.12.11; 5.16.0 installs and is detected but not yet verified end-to-end (≥ 4.0 accepted) |
 | Node.js ≥ 18 with `npx` | runs the **bundled** figma-mcp-go MCP server | Node 24.16.0 |
 | figma-mcp-go plugin in Figma Desktop (one-time import) | bridge between Figma Desktop and the MCP server | figma-mcp-go 0.1.3 |
 | `pdftotext` (poppler) or `pip install pypdf` — optional | reliable PDF text extraction | poppler `pdftotext` (Git for Windows build) |
@@ -30,16 +30,37 @@ claude-code-harness; Spec2Ship then records review/test evidence and writes a de
 
 ## Install
 
-```text
-/plugin marketplace add Chachamaru127/claude-code-harness
-/plugin install harness@claude-code-harness-marketplace
+**One command** — adds both marketplaces and installs Harness + Spec2Ship (safe to re-run):
 
-/plugin marketplace add hthai1523/spec2ship        # this repository (it is its own marketplace)
-/plugin install spec2ship@spec2ship-marketplace
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.ps1 | iex
+```
+```bash
+# macOS / Linux / Git Bash
+curl -fsSL https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.sh | bash
 ```
 
-Restart Claude Code after installing. Local checkout: `/plugin marketplace add /path/to/spec2ship`, or
-`claude --plugin-dir /path/to/spec2ship` for a single session.
+Inside a Claude Code session, prefix the command with `!` to run it there. Restart Claude Code afterwards, then run
+`/spec2ship:spec2ship-setup`. Both scripts need the `claude` CLI on PATH. To install from a local checkout or fork, set
+`SPEC2SHIP_SOURCE` first (e.g. `$env:SPEC2SHIP_SOURCE='D:\src\spec2ship'` or `SPEC2SHIP_SOURCE=/path bash scripts/install.sh`).
+
+<details><summary>Manual install (the same steps, one by one)</summary>
+
+```text
+/plugin marketplace add Chachamaru127/claude-code-harness
+/plugin marketplace add XuanDuy2309/spec2ship        # this repository (it is its own marketplace)
+/plugin install spec2ship@spec2ship-marketplace    # also installs Harness: it is a declared dependency
+```
+
+Harness is a declared dependency of Spec2Ship, so with its marketplace already added the last command pulls it in
+automatically. Claude Code does not add a dependency's *marketplace* by itself, which is why both `marketplace add`
+lines are needed. To install Harness on its own: `/plugin install harness@claude-code-harness-marketplace`.
+(Upstream renamed the plugin from `claude-code-harness` to `harness`; the repository keeps its old name.)
+
+Local checkout: `/plugin marketplace add /path/to/spec2ship`, or `claude --plugin-dir /path/to/spec2ship` for a
+single session.
+</details>
 
 ### Update
 
@@ -165,7 +186,9 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md).
 
 | Symptom | Fix |
 |---|---|
-| `[FAIL] harness` | install/enable claude-code-harness, restart Claude Code |
+| `[FAIL] harness` | install/enable Harness: `/plugin install harness@claude-code-harness-marketplace`, restart Claude Code |
+| `Plugin "claude-code-harness" not found in marketplace` | the plugin was renamed: use `harness@claude-code-harness-marketplace` |
+| `Dependency "harness@..." not found ... Is the "claude-code-harness-marketplace" marketplace added?` | run `/plugin marketplace add Chachamaru127/claude-code-harness` first, or use the one-command installer |
 | `[FAIL] node-runtime` | install Node.js 18+ (bundled figma-mcp-go is started with `npx`), restart Claude Code |
 | figma tools missing in `/mcp` | check Node/npx and network for the first `npx` download; restart Claude Code |
 | `plugin not connected` | open Figma Desktop, open the file, run the figma-mcp-go plugin |
@@ -177,13 +200,20 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md).
 
 ## Hướng dẫn nhanh (Tiếng Việt)
 
-1. **Cài đặt** (trong Claude Code):
-   ```text
-   /plugin marketplace add Chachamaru127/claude-code-harness
-   /plugin install claude-code-harness@claude-code-harness-marketplace
-   /plugin marketplace add hthai1523/spec2ship
-   /plugin install spec2ship@spec2ship-marketplace
+1. **Cài đặt bằng một lệnh** (cần `claude` CLI trong PATH; chạy lại nhiều lần vẫn an toàn):
+   ```powershell
+   # Windows (PowerShell)
+   irm https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.ps1 | iex
    ```
+   ```bash
+   # macOS / Linux / Git Bash
+   curl -fsSL https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.sh | bash
+   ```
+   Lệnh này thêm cả hai marketplace rồi cài Harness và Spec2Ship. Đang ở trong Claude Code thì gõ `!` trước lệnh.
+   Cài tay: `/plugin marketplace add Chachamaru127/claude-code-harness`, rồi
+   `/plugin marketplace add XuanDuy2309/spec2ship`, rồi `/plugin install spec2ship@spec2ship-marketplace`
+   (Harness được cài kèm vì là phụ thuộc khai báo sẵn). Lưu ý: plugin Harness đã đổi tên từ `claude-code-harness`
+   thành `harness`.
    Khởi động lại Claude Code. Máy cần Python 3.9+, Node.js 18+ và bash (Windows: Git Bash).
 2. **Figma:** không cần cấu hình MCP, vì server figma-mcp-go đã được đóng gói sẵn trong plugin. Chỉ cần nhập plugin
    figma-mcp-go vào Figma Desktop một lần (*Plugins → Development → Import plugin from manifest…*, dùng `manifest.json`
