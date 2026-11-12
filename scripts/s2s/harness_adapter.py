@@ -29,7 +29,8 @@ from .common import Spec2ShipError, now_iso, sha256_text, today, write_text
 
 TESTED_VERSIONS = ["4.12.11"]
 MIN_VERSION = (4, 0, 0)
-PLUGIN_NAME = "claude-code-harness"
+PLUGIN_NAME = "harness"  # current upstream name (renamed from "claude-code-harness" in the 5.x line)
+PLUGIN_NAMES = ("harness", "claude-code-harness")  # accepted names, newest first
 HEADER = "| Task | 内容 | DoD | Depends | Status |"
 SEPARATOR = "|------|------|-----|---------|--------|"
 DONE_MARKERS = ("cc:完了", "pm:確認済")
@@ -77,11 +78,11 @@ def detect_harness(project_root: Path | None = None) -> dict[str, Any]:
         return result
     entries = []
     for key, installs in (data.get("plugins") or {}).items():
-        if key.split("@", 1)[0] == PLUGIN_NAME:
+        if key.split("@", 1)[0] in PLUGIN_NAMES:
             for inst in installs if isinstance(installs, list) else [installs]:
                 entries.append((key, inst))
     if not entries:
-        result["issues"].append("claude-code-harness is not installed.")
+        result["issues"].append("Harness (plugin `harness`, formerly `claude-code-harness`) is not installed.")
         return result
     key, inst = sorted(entries, key=lambda e: _parse_version(e[1].get("version", "")))[-1]
     path = Path(inst.get("installPath", ""))

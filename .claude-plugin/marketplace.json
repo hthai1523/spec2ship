@@ -9,18 +9,22 @@
   "metadata": {
     "version": "0.2.0"
   },
+  "allowCrossMarketplaceDependenciesOn": ["claude-code-harness-marketplace"],
   "plugins": [
     {
       "name": "spec2ship",
       "source": "./",
       "version": "0.2.0",
+      "dependencies": [
+        { "name": "harness", "marketplace": "claude-code-harness-marketplace" }
+      ],
       "description": "BA + Figma + repo -> approved, traceable fullstack plan executed by claude-code-harness (preview).",
       "author": {
         "name": "Thaiht",
         "url": "https://github.com/hthai1523"
       },
-      "homepage": "https://github.com/hthai1523/spec2ship",
-      "repository": "https://github.com/hthai1523/spec2ship",
+      "homepage": "https://github.com/XuanDuy2309/spec2ship",
+      "repository": "https://github.com/XuanDuy2309/spec2ship",
       "license": "MIT",
       "category": "productivity",
       "keywords": ["requirements", "figma", "traceability", "harness"],

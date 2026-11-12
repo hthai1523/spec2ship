@@ -30,6 +30,23 @@ claude-code-harness; Spec2Ship then records review/test evidence and writes a de
 
 ## Install
 
+**One command** — adds both marketplaces and installs Harness + Spec2Ship (safe to re-run):
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.ps1 | iex
+```
+```bash
+# macOS / Linux / Git Bash
+curl -fsSL https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.sh | bash
+```
+
+Inside a Claude Code session, prefix the command with `!` to run it there. Restart Claude Code afterwards, then run
+`/spec2ship:spec2ship-setup`. Both scripts need the `claude` CLI on PATH. To install from a local checkout or fork, set
+`SPEC2SHIP_SOURCE` first (e.g. `$env:SPEC2SHIP_SOURCE='D:\src\spec2ship'` or `SPEC2SHIP_SOURCE=/path bash scripts/install.sh`).
+
+<details><summary>Manual install (the same steps, one by one)</summary>
+
 ```text
 /plugin marketplace add Chachamaru127/claude-code-harness
 /plugin install harness@claude-code-harness-marketplace

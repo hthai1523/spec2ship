@@ -142,7 +142,8 @@ def run(project_root: Path) -> dict[str, Any]:
     else:
         add("harness", "fail", "; ".join(h["issues"]),
             "Install Harness: `/plugin marketplace add Chachamaru127/claude-code-harness` then "
-            "`/plugin install claude-code-harness@claude-code-harness-marketplace`, restart Claude Code, and re-run /spec2ship-setup.",
+            "`/plugin install harness@claude-code-harness-marketplace` (or run scripts/install.ps1 / install.sh), "
+            "restart Claude Code, and re-run /spec2ship-setup.",
             blocking=True)
     try:
         add("harness-plans-path", "ok", str(harness_adapter.plans_path(project_root)))
