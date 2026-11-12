@@ -5,6 +5,19 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- One-command installers `scripts/install.ps1` and `scripts/install.sh`: add the Harness and Spec2Ship marketplaces and
+  install both plugins (idempotent; `SPEC2SHIP_SOURCE` overrides the Spec2Ship source). Verified in clean Claude Code
+  config directories, including a second run.
+- `spec2ship` declares Harness as a plugin dependency (`dependencies` + `allowCrossMarketplaceDependenciesOn` in
+  `marketplace.json`). With the Harness marketplace already added, `/plugin install spec2ship@spec2ship-marketplace`
+  installs Harness too. Claude Code does not add the dependency's marketplace itself.
+
+### Fixed
+- Harness plugin was renamed upstream from `claude-code-harness` to `harness` (5.x), so the documented install command
+  failed and preflight reported Harness as missing. Detection now accepts both names; the manual-typed execution-prompt
+  guard also covers `/harness:harness-work` and friends. Install instructions and the preflight fix hint use `harness`.
+- Harness 5.16.0 is detected but is not in the tested-version list (Plans.md format verified on 4.12.11 only).
 ## [0.3.0] - 2026-11-10
 
 ### Security
