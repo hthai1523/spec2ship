@@ -8,7 +8,7 @@ flowchart LR
     subgraph Claude Code session
       CMD[commands/*.md] --> SK[skills/*]
       SK --> AG[read-only agents]
-      SK -->|MCP read tools| FIG[(figma-mcp-go)]
+      SK -->|MCP read tools| FIG[(Figma bridge, read-only, vendored)]
     end
     CMD -->|Bash| CLI[scripts/spec2ship.py]
     CLI --> PARSE[ba_parser] & REPO[repo_analyzer] & VAL[artifacts + schema] & ST[state] & DOC[docs_render] & HA[harness_adapter]

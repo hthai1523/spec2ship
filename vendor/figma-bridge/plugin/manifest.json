@@ -1,0 +1,22 @@
+{
+  "name": "Spec2Ship Figma Bridge (read-only)",
+  "id": "spec2ship-figma-bridge-readonly",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/index.html",
+  "permissions": [],
+  "networkAccess": {
+    "allowedDomains": [
+      "ws://localhost:3994"
+    ],
+    "reasoning": "Connects to the local Spec2Ship MCP server (127.0.0.1:3994) to stream read-only Figma document data to Claude Code"
+  },
+  "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma",
+    "dev"
+  ],
+  "capabilities": [
+    "inspect"
+  ]
+}

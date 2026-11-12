@@ -3,3 +3,5 @@ __pycache__/
 .spec2ship/
 # Claude Code / Harness local session state
 .claude/
+vendor/figma-bridge/server/node_modules/
+vendor/figma-bridge/plugin/node_modules/

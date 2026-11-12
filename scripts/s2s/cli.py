@@ -141,12 +141,12 @@ def cmd_figma_check(args: argparse.Namespace) -> int:
     rec: dict[str, Any] = {"at": now_iso()}
     if args.error:
         rec.update({"ready": False, "error": args.error,
-                    "fix": "Open Figma Desktop, open the referenced file, run the figma-mcp-go plugin (Plugins → Development), then retry."})
+                    "fix": "Open Figma Desktop, open the referenced file, run 'Spec2Ship Figma Bridge (read-only)' (Plugins → Development), then retry."})
     else:
-        m = figma.match_open_file(url_info, args.open_file_name)
+        m = figma.match_open_file(url_info, args.open_file_name, args.open_file_key)
         if args.user_confirmed:
             m = {"match": "user_confirmed", "reason": "Developer confirmed the open file is the referenced design."}
-        rec.update({"ready": True, "open_file_name": args.open_file_name, **m})
+        rec.update({"ready": True, "open_file_name": args.open_file_name, "open_file_key": args.open_file_key, **m})
         if url_info.get("node_id"):
             rec["node_id"] = url_info["node_id"]
             rec["node_found"] = {"yes": True, "no": False}.get(args.node_found or "", None)
@@ -537,7 +537,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     st = state.load(ws)
     rtm = _build_rtm(ws, root, st)
     ver = _load_ver(ws)
-    text = docs_render.render_report(_project_name(ws, root), st, rtm, ver)
+    text = docs_render.render_report(_project_name(ws, root), st, rtm, ver, str(root))
     write_text(ws / "reports" / "report.md", text)
     _out(args, {"report": str(ws / "reports" / "report.md"), "metrics": rtm["metrics"]})
     return 0
@@ -581,6 +581,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("figma-check", help="record the result of the Figma MCP bridge check")
     s.add_argument("--open-file-name")
+    s.add_argument("--open-file-key", help="fileKey reported by the bridge's list_files (decisive when present)")
     s.add_argument("--node-found", choices=["yes", "no"])
     s.add_argument("--error")
     s.add_argument("--user-confirmed", action="store_true")

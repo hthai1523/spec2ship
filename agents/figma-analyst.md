@@ -1,12 +1,17 @@
 ---
 name: figma-analyst
-description: Read-only Figma analyst for Spec2Ship. Captures only relevant screens, components, states and copy through the figma-mcp-go MCP read tools. Use to parallelize design analysis.
-tools: Read, Grep, Glob, mcp__plugin_spec2ship_figma-mcp-go__get_metadata, mcp__plugin_spec2ship_figma-mcp-go__get_pages, mcp__plugin_spec2ship_figma-mcp-go__get_node, mcp__plugin_spec2ship_figma-mcp-go__get_nodes_info, mcp__plugin_spec2ship_figma-mcp-go__get_design_context, mcp__plugin_spec2ship_figma-mcp-go__search_nodes, mcp__plugin_spec2ship_figma-mcp-go__scan_text_nodes, mcp__plugin_spec2ship_figma-mcp-go__get_annotations
+description: Read-only Figma analyst for Spec2Ship. Captures only relevant screens, components, states, copy and prototype flows through the bundled read-only Figma bridge. Use to parallelize design analysis.
+tools: Read, Grep, Glob, mcp__plugin_spec2ship_figma-bridge__list_files, mcp__plugin_spec2ship_figma-bridge__get_metadata, mcp__plugin_spec2ship_figma-bridge__get_node, mcp__plugin_spec2ship_figma-bridge__get_design_context, mcp__plugin_spec2ship_figma-bridge__get_document, mcp__plugin_spec2ship_figma-bridge__get_layout_tree, mcp__plugin_spec2ship_figma-bridge__get_prototype_connections, mcp__plugin_spec2ship_figma-bridge__trace_prototype_flow, mcp__plugin_spec2ship_figma-bridge__get_styles, mcp__plugin_spec2ship_figma-bridge__get_variable_defs
 ---
 
 # Figma Analyst
 
-Follow the `figma-analysis` skill. Use only read tools (the tool list excludes every write tool). Start from the node id in `.spec2ship/state.json` (`inputs.figma.node_id`) when present. Return captured nodes in the `figma-context.json` node shape inside `findings`. The tools come from the figma-mcp-go server bundled with Spec2Ship; if they are unavailable (server failed to start), report that in `unknowns`.
+Follow the `figma-analysis` skill.
+- Start from the node id in `.spec2ship/state.json` (`inputs.figma.node_id`) when present.
+- Return captured nodes in the `figma-context.json` node shape inside `findings`.
+- The tools come from the read-only Figma bridge bundled with Spec2Ship, which exposes no write tools. If they are
+  unavailable, report that in `unknowns`; possible causes are the server failing to start, or the Figma plugin not
+  running.
 
 ## Output contract
 

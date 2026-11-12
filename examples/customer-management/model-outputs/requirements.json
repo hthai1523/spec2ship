@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "source_documents": ["customer-management.md"],
+  "requirements": [
+    {
+      "id": "REQ-CUS-001",
+      "title": "Search customer",
+      "type": "functional",
+      "priority": "high",
+      "layers": ["frontend", "backend", "api", "database"],
+      "source": { "document": "customer-management.md", "section": "3.1", "line": 18, "block_ids": ["B0010", "B0011"], "quote": "Search is case-insensitive and matches partial names." },
+      "description": "Sales staff can search customers by name or phone number from the customer list screen.",
+      "business_rules": ["Search is case-insensitive and matches partial names", "Phone matches exactly, digits only", "20 results per page"],
+      "acceptance_criteria": [
+        { "id": "AC-CUS-001-01", "given": "the customer list is open", "when": "the user searches by part of a name in any letter case", "then": "matching customers are displayed", "origin": "observed" },
+        { "id": "AC-CUS-001-02", "given": "more than 20 customers match", "when": "the user searches", "then": "results are paginated 20 per page", "origin": "observed" }
+      ],
+      "status": "extracted",
+      "origin": "observed",
+      "ambiguities": [],
+      "assumptions": []
+    },
+    {
+      "id": "REQ-CUS-002",
+      "title": "Create customer",
+      "type": "functional",
+      "priority": "high",
+      "layers": ["frontend", "backend", "api", "database"],
+      "source": { "document": "customer-management.md", "section": "3.2", "block_ids": ["B0013"] },
+      "description": "A sales manager can create a customer with name, phone and email; phone must be unique.",
+      "business_rules": ["Phone must be unique", "Only sales managers can create customers"],
+      "acceptance_criteria": [
+        { "id": "AC-CUS-002-01", "given": "a sales manager on the create form", "when": "they submit a valid name, phone and email", "then": "the customer is created", "origin": "observed" },
+        { "id": "AC-CUS-002-02", "given": "a customer with phone P exists", "when": "a manager creates another customer with phone P", "then": "the error \"Phone number already registered\" is shown", "origin": "observed" }
+      ],
+      "status": "extracted",
+      "origin": "observed",
+      "ambiguities": [
+        { "id": "Q-001", "kind": "missing", "question": "Is email required and must it be unique?", "blocking": false, "resolution": null }
+      ],
+      "assumptions": ["Email format is validated with standard rules"]
+    },
+    {
+      "id": "REQ-CUS-003",
+      "title": "Customer detail",
+      "type": "ui",
+      "priority": "medium",
+      "layers": ["frontend", "api"],
+      "source": { "document": "customer-management.md", "section": "Customer detail" },
+      "description": "Selecting a customer opens a detail screen showing name, phone, email and created date.",
+      "acceptance_criteria": [
+        { "id": "AC-CUS-003-01", "given": "the customer list", "when": "the user selects a customer", "then": "the detail screen shows name, phone, email and created date", "origin": "observed" }
+      ],
+      "status": "extracted",
+      "origin": "observed"
+    },
+    {
+      "id": "REQ-CUS-004",
+      "title": "Search performance",
+      "type": "non_functional",
+      "priority": "medium",
+      "layers": ["backend", "database"],
+      "source": { "document": "customer-management.md", "section": "4" },
+      "description": "Search results return within 1 second for 100,000 customers.",
+      "acceptance_criteria": [
+        { "id": "AC-CUS-004-01", "given": "100,000 customers", "when": "a search is executed", "then": "results return within 1 second", "origin": "observed" }
+      ],
+      "status": "deferred",
+      "origin": "observed",
+      "notes": "Deferred by developer: needs a performance environment."
+    }
+  ]
+}

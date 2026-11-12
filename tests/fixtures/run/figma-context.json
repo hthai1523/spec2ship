@@ -2,14 +2,14 @@
   "schema_version": "1.0",
   "url": { "url": "https://www.figma.com/design/AbCdEf1234567890/customer-management?node-id=12-345", "kind": "design", "file_key": "AbCdEf1234567890", "name_slug": "customer-management", "node_id": "12:345" },
   "status": "captured",
-  "mcp_server": "figma-mcp-go",
-  "open_file": { "name": "Customer Management", "current_page": "App", "match": "high", "match_reason": "URL name matches open file" },
+  "mcp_server": "spec2ship-figma-bridge",
+  "open_file": { "name": "Customer Management", "current_page": "App", "match": "high", "match_reason": "Open file key equals the URL file key" },
   "pages": [{ "id": "0:1", "name": "App" }],
   "nodes": [
     { "id": "12:345", "name": "Customer List", "type": "FRAME", "page": "App", "texts": ["Customers", "Search by name or phone", "Name", "Phone"], "components": ["SearchInput", "DataTable", "Pagination"], "states": ["empty", "loading"] },
     { "id": "12:400", "name": "Create Customer", "type": "FRAME", "page": "App", "texts": ["New customer", "Name", "Phone", "Email", "Save"], "components": ["TextField", "Button"] },
     { "id": "12:450", "name": "Customer Detail", "type": "FRAME", "page": "App", "texts": ["Name", "Phone", "Email", "Created"] }
   ],
-  "tools_called": ["get_metadata", "get_pages", "get_node", "get_design_context", "scan_text_nodes"],
+  "tools_called": ["list_files", "get_metadata", "get_node", "get_design_context", "trace_prototype_flow"],
   "warnings": []
 }

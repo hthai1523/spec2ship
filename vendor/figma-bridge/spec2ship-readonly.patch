@@ -1,0 +1,211 @@
+diff --git a/plugin/manifest.json b/plugin/manifest.json
+index e9a2766..9240db9 100644
+--- a/plugin/manifest.json
++++ b/plugin/manifest.json
+@@ -1,15 +1,22 @@
+ {
+-  "name": "Figma MCP Bridge",
+-  "id": "figma-mcp-bridge",
++  "name": "Spec2Ship Figma Bridge (read-only)",
++  "id": "spec2ship-figma-bridge-readonly",
+   "api": "1.0.0",
+   "main": "dist/code.js",
+   "ui": "dist/index.html",
+   "permissions": [],
+   "networkAccess": {
+-    "allowedDomains": ["ws://localhost:1994"],
+-    "reasoning": "Connects to local MCP server via WebSocket to stream Figma document data to AI tools"
++    "allowedDomains": [
++      "ws://localhost:3994"
++    ],
++    "reasoning": "Connects to the local Spec2Ship MCP server (127.0.0.1:3994) to stream read-only Figma document data to Claude Code"
+   },
+   "documentAccess": "dynamic-page",
+-  "editorType": ["figma", "dev", "figjam"],
+-  "capabilities": ["inspect"]
++  "editorType": [
++    "figma",
++    "dev"
++  ],
++  "capabilities": [
++    "inspect"
++  ]
+ }
+diff --git a/plugin/src/main/code.ts b/plugin/src/main/code.ts
+index 518e44c..bae9641 100644
+--- a/plugin/src/main/code.ts
++++ b/plugin/src/main/code.ts
+@@ -507,8 +507,29 @@ async function getLayoutTree(rootId: string, maxNodes = 2000) {
+   };
+ }
+ 
++// Spec2Ship read-only build: the plugin itself refuses every request that is not a read,
++// so a design can never be modified through this bridge, whichever process sends the request.
++const SPEC2SHIP_READ_ONLY_REQUESTS = new Set([
++  "get_document",
++  "get_selection",
++  "get_layout_tree",
++  "get_node",
++  "get_prototype_connections",
++  "trace_prototype_flow",
++  "get_styles",
++  "get_metadata",
++  "get_design_context",
++  "get_variable_defs",
++  "get_screenshot",
++  "get_motion_styles",
++  "get_node_motion",
++]);
++
+ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> => {
+   try {
++    if (!SPEC2SHIP_READ_ONLY_REQUESTS.has(request.type)) {
++      throw new Error(`"${request.type}" is disabled in the Spec2Ship read-only Figma bridge`);
++    }
+     if (EDIT_REQUEST_TYPES.has(request.type)) {
+       requireEditorMode(request.type);
+     }
+diff --git a/plugin/src/ui/App.tsx b/plugin/src/ui/App.tsx
+index 6a9bd3e..fc9477f 100644
+--- a/plugin/src/ui/App.tsx
++++ b/plugin/src/ui/App.tsx
+@@ -55,7 +55,7 @@ type PluginStatus = {
+ // `||` (not `??`) so an empty build-time value falls back to the default.
+ // A custom endpoint must also be listed in manifest.json's
+ // networkAccess.allowedDomains or Figma will block the connection.
+-const WS_BASE_URL = import.meta.env.VITE_FIGMA_BRIDGE_WS || "ws://localhost:1994/ws";
++const WS_BASE_URL = import.meta.env.VITE_FIGMA_BRIDGE_WS || "ws://localhost:3994/ws";
+ 
+ export default function App() {
+   const [connected, setConnected] = useState(false);
+diff --git a/server/src/index.ts b/server/src/index.ts
+index 0a75deb..693783a 100644
+--- a/server/src/index.ts
++++ b/server/src/index.ts
+@@ -13,7 +13,7 @@ import { VERSION } from "./version.js";
+ // plugin manifest's networkAccess.allowedDomains).
+ function resolvePort(): number {
+   const raw = process.env.FIGMA_BRIDGE_PORT;
+-  if (raw === undefined) return 1994;
++  if (raw === undefined) return 3994; // Spec2Ship: own port, never joins a stock bridge on 1994
+   const port = Number(raw.trim());
+   if (!Number.isInteger(port) || port < 1 || port > 65535) {
+     // An explicitly set but invalid value must not silently join the stock
+@@ -92,7 +92,7 @@ async function main(): Promise<void> {
+   });
+ 
+   const server = new McpServer({
+-    name: "figma-bridge",
++    name: "spec2ship-figma-bridge",
+     version: VERSION,
+   });
+ 
+diff --git a/server/src/leader.ts b/server/src/leader.ts
+index 9bade6a..aa2b986 100644
+--- a/server/src/leader.ts
++++ b/server/src/leader.ts
+@@ -7,6 +7,7 @@ import { executeSaveScreenshots, isRunScriptEnabled } from "./tools.js";
+ import type { ExportFormat } from "./tools.js";
+ import type { RPCRequest, RPCResponse } from "./types.js";
+ import { VERSION } from "./version.js";
++import { isReadOnlyTool, READ_ONLY_REFUSAL } from "./readonly.js";
+ 
+ const loopback = new BlockList();
+ loopback.addSubnet("127.0.0.0", 8, "ipv4");
+@@ -103,6 +104,12 @@ export class Leader {
+       try {
+         const rpcReq: RPCRequest = JSON.parse(body);
+ 
++        // Spec2Ship: the leader forwards read-only tools only, whoever the caller is.
++        if (typeof rpcReq.tool !== "string" || !isReadOnlyTool(rpcReq.tool)) {
++          this.sendJSON(res, 403, { error: READ_ONLY_REFUSAL });
++          return;
++        }
++
+         // Handle list_files as a special RPC (not forwarded to plugin)
+         if (rpcReq.tool === "list_files") {
+           this.sendJSON(res, 200, {
+diff --git a/server/src/readonly.ts b/server/src/readonly.ts
+new file mode 100644
+index 0000000..62b89ad
+--- /dev/null
++++ b/server/src/readonly.ts
+@@ -0,0 +1,42 @@
++// Spec2Ship read-only build (not part of upstream gethopp/figma-mcp-bridge).
++// Only tools that read the open Figma document are registered, accepted over /rpc,
++// or (in the plugin) executed. Everything that edits the design, the selection/viewport,
++// runs scripts or writes local files is removed.
++
++export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
++  "list_files",
++  "get_document",
++  "get_selection",
++  "get_layout_tree",
++  "get_node",
++  "get_prototype_connections",
++  "trace_prototype_flow",
++  "get_styles",
++  "get_metadata",
++  "get_design_context",
++  "get_variable_defs",
++  "get_screenshot",
++  "get_motion_styles",
++  "get_node_motion",
++]);
++
++export function isReadOnlyTool(name: string): boolean {
++  return READ_ONLY_TOOLS.has(name);
++}
++
++export const READ_ONLY_REFUSAL =
++  "This tool is not available in the Spec2Ship read-only Figma bridge (design edits are disabled).";
++
++/** Wraps an McpServer so that `tool(name, ...)` silently skips every non read-only tool. */
++export function readOnlyServer<T extends { tool: (...args: any[]) => unknown }>(server: T): T {
++  return new Proxy(server, {
++    get(target, prop, receiver) {
++      if (prop === "tool") {
++        return (name: string, ...rest: unknown[]) =>
++          isReadOnlyTool(name) ? (target.tool as (...a: unknown[]) => unknown).call(target, name, ...rest) : undefined;
++      }
++      const value = Reflect.get(target, prop, receiver);
++      return typeof value === "function" ? value.bind(target) : value;
++    },
++  });
++}
+diff --git a/server/src/tools.ts b/server/src/tools.ts
+index f6c25bf..c563ca5 100644
+--- a/server/src/tools.ts
++++ b/server/src/tools.ts
+@@ -48,6 +48,7 @@ import {
+ } from "./schema.js";
+ import type { BridgeResponse } from "./types.js";
+ import { Follower } from "./follower.js";
++import { readOnlyServer } from "./readonly.js";
+ 
+ const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
+ const IMAGE_FETCH_TIMEOUT_MS = 15_000;
+@@ -109,7 +110,9 @@ interface SaveScreenshotItemResult {
+  * @param node - The node coordinator for leader/follower routing.
+  * @param port - The port used for follower-to-leader HTTP calls.
+  */
+-export function registerTools(server: McpServer, node: Node, port: number): void {
++export function registerTools(mcpServer: McpServer, node: Node, port: number): void {
++  // Spec2Ship: register read-only tools only.
++  const server = readOnlyServer(mcpServer);
+   server.tool(
+     "list_files",
+     "List all currently connected Figma/FigJam files. Returns fileKey and fileName for each. Use the fileKey to target a specific file in other tools.",
+diff --git a/server/src/version.ts b/server/src/version.ts
+index 6ac9865..433343a 100644
+--- a/server/src/version.ts
++++ b/server/src/version.ts
+@@ -1,6 +1,2 @@
+-import { createRequire } from "node:module";
+-
+-const require = createRequire(import.meta.url);
+-const pkg = require("../package.json") as { version: string };
+-
+-export const VERSION = pkg.version;
++// Spec2Ship: constant so the server can be bundled into a single file.
++export const VERSION = "0.0.26-spec2ship.1";

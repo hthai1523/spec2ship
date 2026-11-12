@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "mappings": [
+    { "requirement_id": "REQ-CUS-001", "node_id": "12:345", "node_name": "Customer List", "relation": "screen", "confidence": "high", "evidence": "Frame contains 'Search by name or phone' input and Pagination component" },
+    { "requirement_id": "REQ-CUS-002", "node_id": "12:400", "node_name": "Create Customer", "relation": "screen", "confidence": "high", "evidence": "Form with Name, Phone, Email fields and Save button" },
+    { "requirement_id": "REQ-CUS-003", "node_id": "12:450", "node_name": "Customer Detail", "relation": "screen", "confidence": "medium", "evidence": "Frame shows Name, Phone, Email, Created labels" }
+  ],
+  "unmapped_requirements": [
+    { "requirement_id": "REQ-CUS-004", "reason": "no_ui" }
+  ],
+  "conflicts": []
+}

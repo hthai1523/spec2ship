@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://spec2ship.dev/schemas/figma-context.schema.json",
-  "title": "Figma context captured through figma-mcp-go (analysis/figma-context.json)",
+  "title": "Figma context captured through the bundled read-only Figma bridge (analysis/figma-context.json)",
   "type": "object",
   "required": ["schema_version", "url", "status", "nodes"],
   "additionalProperties": false,

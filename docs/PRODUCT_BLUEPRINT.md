@@ -1,5 +1,7 @@
 # Spec2Ship — Implementation Blueprint for Claude Code
 
+> **Note (0.3.0):** this is the original blueprint, kept for reference. The Figma integration it names (`figma-mcp-go`) was replaced by a vendored read-only build of `gethopp/figma-mcp-bridge`; see `docs/INTEGRATION.md`.
+
 > **Purpose:** This document is the implementation brief for Claude Code. Use it to create a working public Claude Code plugin repository named **Spec2Ship**.
 >
 > **Product:** Transform BA documents + Figma designs + an existing repository into an approved, traceable, verified fullstack implementation.
