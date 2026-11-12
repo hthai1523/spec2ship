@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Spec2Ship one-command installer (macOS / Linux / Git Bash).
 #
-#   curl -fsSL https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/hthai1523/spec2ship/main/scripts/install.sh | bash
 #
 # Adds the Harness and Spec2Ship marketplaces, then installs both plugins with the `claude` CLI.
 # Safe to re-run. Set SPEC2SHIP_SOURCE to install from a local checkout or fork:
@@ -11,7 +11,7 @@ set -euo pipefail
 HARNESS_MARKETPLACE_SOURCE="Chachamaru127/claude-code-harness"
 HARNESS_MARKETPLACE="claude-code-harness-marketplace"
 HARNESS_PLUGIN="harness"   # renamed from "claude-code-harness" upstream
-SPEC2SHIP_SOURCE="${SPEC2SHIP_SOURCE:-XuanDuy2309/spec2ship}"
+SPEC2SHIP_SOURCE="${SPEC2SHIP_SOURCE:-hthai1523/spec2ship}"
 SPEC2SHIP_MARKETPLACE="spec2ship-marketplace"
 
 if ! command -v claude >/dev/null 2>&1; then

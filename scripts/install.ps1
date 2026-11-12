@@ -1,6 +1,6 @@
 # Spec2Ship one-command installer (Windows PowerShell 5.1+ / PowerShell 7).
 #
-#   irm https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/hthai1523/spec2ship/main/scripts/install.ps1 | iex
 #
 # Adds the Harness and Spec2Ship marketplaces, then installs both plugins with the `claude` CLI.
 # Safe to re-run. Set SPEC2SHIP_SOURCE to install from a local checkout or fork,
@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $HarnessMarketplaceSource = 'Chachamaru127/claude-code-harness'
 $HarnessMarketplace = 'claude-code-harness-marketplace'
 $HarnessPlugin = 'harness'   # renamed from "claude-code-harness" upstream
-$Spec2ShipSource = if ($env:SPEC2SHIP_SOURCE) { $env:SPEC2SHIP_SOURCE } else { 'XuanDuy2309/spec2ship' }
+$Spec2ShipSource = if ($env:SPEC2SHIP_SOURCE) { $env:SPEC2SHIP_SOURCE } else { 'hthai1523/spec2ship' }
 $Spec2ShipMarketplace = 'spec2ship-marketplace'
 
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
