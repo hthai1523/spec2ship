@@ -54,7 +54,7 @@ def fake_claude_config(base: Path, harness_version="4.12.11", with_figma=True, p
         "plugins": {f"{plugin_name}@claude-code-harness-marketplace": [
             {"scope": "user", "installPath": str(inst), "version": harness_version}]},
     }), encoding="utf-8")
-    if with_figma and project is not None:
+    if with_figma and project is not None:  # the user's own (non Spec2Ship) Figma server
         (project / ".mcp.json").write_text(json.dumps({"mcpServers": {"figma-mcp-go": {
             "command": "npx", "args": ["-y", "@vkhanhqui/figma-mcp-go@0.4.2"]}}}), encoding="utf-8")
     return cfg

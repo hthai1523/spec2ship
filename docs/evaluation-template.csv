@@ -1,0 +1,3 @@
+ticket_id,mode,developer,date,model,claude_code_version,requirements_total,open_questions_raised,analysis_hours,implementation_hours,rework_hours,review_findings_major,review_findings_minor,missed_requirements,tests_added,notes
+EXAMPLE-1,manual,dev-a,2026-11-11,-,-,0,0,0,0,0,0,0,0,0,
+EXAMPLE-1,spec2ship,dev-b,2026-11-11,claude-opus-5-5,2.1.321,0,0,0,0,0,0,0,0,0,

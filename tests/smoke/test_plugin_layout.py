@@ -64,17 +64,29 @@ class PluginLayout(unittest.TestCase):
         self.assertTrue((REPO / "scripts" / "run-hook.sh").exists())
         self.assertTrue((REPO / "scripts" / "hook.py").exists())
 
-    def test_bundled_figma_server_pinned_and_referenced(self):
+    def test_bundled_figma_bridge_is_vendored_and_referenced(self):
         servers = json.loads((REPO / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]
-        self.assertEqual(list(servers), ["figma-mcp-go"])
-        args = servers["figma-mcp-go"]["args"]
-        pkg = next(a for a in args if a.startswith("@vkhanhqui/figma-mcp-go@"))
-        self.assertRegex(pkg, r"@\d+\.\d+\.\d+$", "bundled server must be pinned to an exact version")
-        prefix = "mcp__plugin_spec2ship_figma-mcp-go__"
+        self.assertEqual(list(servers), ["figma-bridge"])
+        cfg = servers["figma-bridge"]
+        self.assertEqual(cfg["command"], "node", "no npx: nothing is downloaded at runtime")
+        self.assertEqual(cfg["args"], ["${CLAUDE_PLUGIN_ROOT}/vendor/figma-bridge/dist/server.mjs"])
+        self.assertEqual(cfg["env"]["FIGMA_BRIDGE_PORT"], "3994")
+        vendor = REPO / "vendor" / "figma-bridge"
+        for f in ("dist/server.mjs", "LICENSE.md", "THIRD_PARTY_LICENSES.md", "UPSTREAM.md", "spec2ship-readonly.patch",
+                  "build.sh", "server/src/readonly.ts", "server/package-lock.json", "plugin/manifest.json"):
+            self.assertTrue((vendor / f).is_file(), f)
+        manifest = json.loads((vendor / "plugin" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["networkAccess"]["allowedDomains"], ["ws://localhost:3994"])
+        self.assertIn("read-only", manifest["name"])
+        self.assertIn("SPEC2SHIP_READ_ONLY_REQUESTS", (vendor / "plugin" / "src" / "main" / "code.ts").read_text(encoding="utf-8"))
+        prefix = "mcp__plugin_spec2ship_figma-bridge__"
         fm, _ = frontmatter(REPO / "agents" / "figma-analyst.md")
-        self.assertTrue(all(t.strip().startswith(prefix) for t in fm["tools"].split(",") if "mcp__" in t))
+        mcp_tools = [t.strip() for t in fm["tools"].split(",") if "mcp__" in t]
+        self.assertTrue(mcp_tools and all(t.startswith(prefix) for t in mcp_tools))
         for p in list((REPO / "skills").rglob("*.md")) + list((REPO / "commands").glob("*.md")) + list((REPO / "agents").glob("*.md")):
-            self.assertNotIn("mcp__figma-mcp-go__", p.read_text(encoding="utf-8"), f"stale tool prefix in {p}")
+            text = p.read_text(encoding="utf-8")
+            for stale in ("figma-mcp-go", "mcp__figma-mcp-go__", "npx -y @vkhanhqui"):
+                self.assertNotIn(stale, text, f"stale reference {stale!r} in {p}")
 
     def test_schemas_are_valid_json_and_referenced(self):
         for p in (REPO / "schemas").glob("*.schema.json"):

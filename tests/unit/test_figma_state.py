@@ -32,6 +32,9 @@ class FigmaUrlTests(unittest.TestCase):
         self.assertEqual(figma.match_open_file(info, "Customer Management v2")["match"], "medium")
         self.assertEqual(figma.match_open_file(info, "Golf CMS")["match"], "low")
         self.assertEqual(figma.match_open_file(info, None)["match"], "unknown")
+        # A file key reported by the bridge (list_files) is decisive, whatever the name says
+        self.assertEqual(figma.match_open_file(info, "Golf CMS", info["file_key"])["match"], "high")
+        self.assertEqual(figma.match_open_file(info, "Customer Management", "ZZZZZZZZZZZZZZZZ")["match"], "low")
 
 
 class StateTests(unittest.TestCase):

@@ -17,12 +17,23 @@ We aim to acknowledge within 5 business days. Supported version: the latest rele
 | Secrets | Reading `.env`/keys during repo analysis | Analyzer skips `.env*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `id_rsa*`; skills forbid reading secrets |
 | User work | Overwriting files / Plans.md / spec edits | Plans.md merged inside markers with a backup; handoff refuses to overwrite started tasks; developer edits of `spec.md` preserved; `.gitignore` never edited; root `spec.md` never written |
 | Production | Deploys, destructive git, production DB | Not performed by Spec2Ship; verification skill forbids them; risky tasks (destructive migration, breaking API, cross-repo) flagged for explicit review; Harness guardrails remain in force |
-| Supply chain | Bundled MCP server fetched from npm at runtime (`npx`) | Pinned to an exact version (`@vkhanhqui/figma-mcp-go@0.1.3`, MIT) in `.mcp.json`; a test fails if it becomes unpinned; npm still serves the bytes, so review upstream releases before bumping the pin. Preflight warns when a user-configured figma-mcp-go is unpinned |
-| Design integrity | Bundled server exposes Figma write tools | Spec2Ship skills forbid write tools and the `figma-analyst` agent allowlist contains only read tools; Claude Code permission prompts still apply |
+| Supply chain | Third-party MCP server code | The Figma bridge is **vendored and built by Spec2Ship** (`vendor/figma-bridge`): source of gethopp/figma-mcp-bridge v0.0.26 (MIT) with a reviewed read-only patch, a lockfile and the built `dist/server.mjs` committed with its sha256. Claude Code runs it with `node` from the plugin folder — **nothing is downloaded at runtime** (no `npx`). Bundled npm packages and licenses: `vendor/figma-bridge/THIRD_PARTY_LICENSES.md`. Upgrades follow `vendor/figma-bridge/UPSTREAM.md`. 0.2.0 used `npx @vkhanhqui/figma-mcp-go`, whose repository was disabled after a DMCA notice; preflight warns if a user still has it configured |
+| Design integrity | Agent edits or deletes the Figma design | The bridge is read-only in three places: the MCP server registers only 14 read tools; the leader's local `/rpc` endpoint returns 403 for any other tool; the Figma plugin itself refuses every non-read request. `tests/smoke/test_figma_bridge.py` starts the built server and checks all of this |
+| Local bridge port | Other local processes talking to the bridge | Leader binds `127.0.0.1:3994` only (own port, never joins a stock bridge on 1994); `/rpc` rejects non-loopback callers and requests with an `Origin` header (browsers); the Figma plugin may only connect to `ws://localhost:3994`. Any local process can still *read* the open design through the bridge while the Figma plugin runs — close the plugin when not in use |
 
 ## Limits (be honest)
 
-The approval gate is a guardrail inside Claude Code. Anyone with shell access (including a model allowed to run
-arbitrary shell commands outside the patterns the hook recognizes) could alter workspace files. Hooks fail open on
-internal errors so they never lock users out; a warning is printed to stderr. Use Claude Code permission settings to
-restrict shell access in sensitive repositories.
+**The hooks are workflow guardrails, not a security mechanism.** They stop Claude from skipping the review step by
+mistake or by following injected text. They do not protect against a person, or a model allowed to run arbitrary
+shell commands outside the patterns the hook recognizes, who wants to change workspace files.
+
+- **Fail-open by design:** if the hook launcher or Python fails (missing interpreter, broken environment), the hook
+  prints a warning to stderr and allows the action, so users are never locked out of Claude Code. On a machine where
+  the hooks cannot run:
+  - the scope guard (blocking `/harness-work` after the approved plan changed) and the denials of writes to
+    approval and state files are off;
+  - approval itself still fails closed, because without the hook no approval intent is recorded and the CLI refuses
+    `approve`.
+- The approval record lives in `.spec2ship/` and is not cryptographically signed.
+- Use Claude Code permission settings, branch protection and code review for real enforcement in sensitive
+  repositories.

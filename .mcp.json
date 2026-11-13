@@ -1,8 +1,12 @@
 {
   "mcpServers": {
-    "figma-mcp-go": {
-      "command": "npx",
-      "args": ["-y", "@vkhanhqui/figma-mcp-go@0.1.3"]
+    "figma-bridge": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/vendor/figma-bridge/dist/server.mjs"],
+      "env": {
+        "FIGMA_BRIDGE_PORT": "3994",
+        "FIGMA_BRIDGE_HOST": "127.0.0.1"
+      }
     }
   }
 }

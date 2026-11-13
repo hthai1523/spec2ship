@@ -1,6 +1,6 @@
 {
   "name": "spec2ship",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Turn BA documents (PDF/DOCX/MD) + Figma designs + an existing repo into an approved, traceable fullstack plan executed by claude-code-harness with evidence-based verification. Preview release.",
   "author": {
     "name": "Thaiht",

@@ -14,37 +14,47 @@ from . import harness_adapter
 from .common import PLUGIN_ROOT
 from .harness_adapter import claude_config_dir
 
-FIGMA_PACKAGE = "@vkhanhqui/figma-mcp-go"
-FIGMA_MARKER = "figma-mcp-go"
-# Tool-name prefix of the server bundled in this plugin's .mcp.json (Claude Code: mcp__plugin_<plugin>_<server>__<tool>)
-BUNDLED_TOOL_PREFIX = "mcp__plugin_spec2ship_figma-mcp-go__"
-NODE_MIN_MAJOR = 18  # figma-mcp-go package.json engines.node >= 18
+FIGMA_SERVER = "figma-bridge"  # server name in the plugin's .mcp.json
+# Tool-name prefix of the bundled server (Claude Code: mcp__plugin_<plugin>_<server>__<tool>)
+BUNDLED_TOOL_PREFIX = f"mcp__plugin_spec2ship_{FIGMA_SERVER}__"
+BRIDGE_DIR = PLUGIN_ROOT / "vendor" / "figma-bridge"
+BRIDGE_PORT = 3994
+NODE_MIN_MAJOR = 20  # figma-mcp-bridge server engines.node >= 20
+# Other Figma bridges users may have configured themselves (detected for notices only)
+OTHER_FIGMA_MARKERS = ("figma-mcp-go", "figma-mcp-bridge", "figma-bridge")
+DMCA_PACKAGE = "@vkhanhqui/figma-mcp-go"
 
 
 def bundled_figma_server() -> dict[str, Any] | None:
-    """The figma-mcp-go server shipped in the plugin's own .mcp.json (started by Claude Code with the plugin)."""
-    cfg = _servers_from(_load(PLUGIN_ROOT / ".mcp.json")).get(FIGMA_MARKER)
+    """The read-only Figma bridge shipped in the plugin (vendor/figma-bridge, started by Claude Code via .mcp.json)."""
+    cfg = _servers_from(_load(PLUGIN_ROOT / ".mcp.json")).get(FIGMA_SERVER)
     if not cfg:
         return None
-    blob = " ".join([str(cfg.get("command", "")), *map(str, cfg.get("args", []) or [])])
-    m = re.search(r"figma-mcp-go@([\w.\-]+)", blob)
-    version = m.group(1) if m else None
-    return {"name": FIGMA_MARKER, "source": f"{PLUGIN_ROOT / '.mcp.json'} (bundled with Spec2Ship)", "command": blob,
-            "package_version": version, "pinned": bool(version and version != "latest"),
-            "tool_prefix": BUNDLED_TOOL_PREFIX}
+    args = [str(a) for a in cfg.get("args", []) or []]
+    script = next((a for a in args if a.endswith(".mjs")), "")
+    server_path = Path(script.replace("${CLAUDE_PLUGIN_ROOT}", str(PLUGIN_ROOT))) if script else None
+    manifest = BRIDGE_DIR / "plugin" / "manifest.json"
+    plugin_built = all((BRIDGE_DIR / "plugin" / "dist" / f).is_file() for f in ("code.js", "index.html"))
+    return {"name": FIGMA_SERVER, "source": f"{PLUGIN_ROOT / '.mcp.json'} (bundled with Spec2Ship)",
+            "command": " ".join([str(cfg.get("command", "")), *args]),
+            "server_path": str(server_path) if server_path else None,
+            "server_exists": bool(server_path and server_path.is_file()),
+            "uses_npx": "npx" in str(cfg.get("command", "")),
+            "figma_plugin_manifest": str(manifest), "figma_plugin_built": plugin_built,
+            "port": BRIDGE_PORT, "tool_prefix": BUNDLED_TOOL_PREFIX}
 
 
 def node_runtime() -> dict[str, Any]:
-    node, npx = shutil.which("node"), shutil.which("npx")
-    if not node or not npx:
-        return {"ok": False, "detail": f"node={'found' if node else 'missing'}, npx={'found' if npx else 'missing'}"}
+    node = shutil.which("node")
+    if not node:
+        return {"ok": False, "detail": "node not found on PATH"}
     try:
         out = subprocess.run([node, "--version"], capture_output=True, text=True, timeout=20).stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
         return {"ok": False, "detail": "node --version failed"}
     m = re.match(r"v(\d+)", out)
     major = int(m.group(1)) if m else 0
-    return {"ok": major >= NODE_MIN_MAJOR, "version": out, "detail": f"Node {out}, npx found"}
+    return {"ok": major >= NODE_MIN_MAJOR, "version": out, "detail": f"Node {out}"}
 
 
 def _servers_from(data: dict[str, Any]) -> dict[str, Any]:
@@ -59,7 +69,7 @@ def _load(p: Path) -> dict[str, Any]:
 
 
 def find_figma_mcp(project_root: Path) -> list[dict[str, Any]]:
-    """Return configured MCP servers that run figma-mcp-go (project .mcp.json, user and local scopes)."""
+    """Return user-configured MCP servers that run another Figma bridge (project .mcp.json, user and local scopes)."""
     found: list[dict[str, Any]] = []
     sources: list[tuple[str, dict[str, Any]]] = []
     # Claude Code also picks up project-scope .mcp.json files from ancestor directories
@@ -83,16 +93,8 @@ def find_figma_mcp(project_root: Path) -> list[dict[str, Any]]:
     for src, servers in sources:
         for name, cfg in servers.items():
             blob = " ".join([str(cfg.get("command", "")), *map(str, cfg.get("args", []) or []), str(cfg.get("url", ""))])
-            if FIGMA_MARKER in blob or FIGMA_MARKER in name:
-                m = re.search(r"figma-mcp-go@([\w.\-]+)", blob)
-                version = m.group(1) if m else None
-                found.append({
-                    "name": name,
-                    "source": src,
-                    "command": blob.strip(),
-                    "package_version": version,
-                    "pinned": bool(version and version != "latest"),
-                })
+            if any(mk in blob or mk in name for mk in OTHER_FIGMA_MARKERS):
+                found.append({"name": name, "source": src, "command": blob.strip(), "dmca_disabled": DMCA_PACKAGE in blob})
     return found
 
 
@@ -151,34 +153,43 @@ def run(project_root: Path) -> dict[str, Any]:
         add("harness-plans-path", "fail", str(e), "Fix plansDirectory in .claude-code-harness.config.yaml", True)
 
     bundled = bundled_figma_server()
-    user_figma = find_figma_mcp(project_root)
-    figma = ([bundled] if bundled else []) + user_figma
+    others = find_figma_mcp(project_root)
     node = node_runtime()
-    if bundled:
-        add("figma-mcp-config", "ok" if bundled["pinned"] else "warn",
-            f"bundled with Spec2Ship: {bundled['command']} (tools {bundled['tool_prefix']}*)",
-            None if bundled["pinned"] else "Bundled server should be pinned to a tested version.")
-        if user_figma:
-            add("figma-mcp-duplicate", "ok",
-                f"You also configured '{user_figma[0]['name']}' ({user_figma[0]['source']}). Both can run: figma-mcp-go "
-                "elects one leader on 127.0.0.1:1994 and other instances act as followers. You may remove your own entry.")
+    if not bundled or not bundled["server_exists"]:
+        add("figma-mcp-config", "fail",
+            "The bundled read-only Figma bridge is missing" + (f" ({bundled['server_path']})" if bundled else " from .mcp.json") + ".",
+            "Reinstall or update Spec2Ship: `/plugin update spec2ship@spec2ship-marketplace`, then restart Claude Code.",
+            blocking=True)
+    else:
+        add("figma-mcp-config", "ok",
+            f"bundled read-only Figma bridge (no download): {bundled['command']} — tools {bundled['tool_prefix']}*, "
+            f"127.0.0.1:{bundled['port']}")
         if node["ok"]:
             add("node-runtime", "ok", node["detail"])
         else:
-            add("node-runtime", "fail", f"{node['detail']} — the bundled figma-mcp-go server is started with npx.",
-                f"Install Node.js {NODE_MIN_MAJOR}+ (https://nodejs.org) and restart Claude Code.", blocking=True)
-    elif not user_figma:
-        add("figma-mcp-config", "fail", "No MCP server running figma-mcp-go is configured for this project.",
-            f"Reinstall Spec2Ship (it bundles the server) or add it: `claude mcp add figma-mcp-go -s project -- npx -y {FIGMA_PACKAGE}@<version>`.",
-            blocking=True)
-    else:
-        f0 = user_figma[0]
-        add("figma-mcp-config", "ok" if f0["pinned"] else "warn", f"'{f0['name']}' from {f0['source']}: {f0['command']}",
-            None if f0["pinned"] else f"Pin the package version (e.g. {FIGMA_PACKAGE}@<tested-version>) instead of an unpinned/@latest npx install.")
+            add("node-runtime", "fail", f"{node['detail']} — the bundled Figma bridge runs on Node.js {NODE_MIN_MAJOR}+.",
+                f"Install Node.js {NODE_MIN_MAJOR}+ (https://nodejs.org, or `winget install OpenJS.NodeJS.LTS` / "
+                "`brew install node`) and restart Claude Code.", blocking=True)
+        if bundled["figma_plugin_built"]:
+            add("figma-plugin", "ok", f"Figma plugin to import: {bundled['figma_plugin_manifest']}")
+        else:
+            add("figma-plugin", "fail", "The read-only Figma plugin build (vendor/figma-bridge/plugin/dist) is missing.",
+                "Update Spec2Ship, or (maintainers) run `bash vendor/figma-bridge/build.sh plugin`.")
+    for o in others:
+        if o["dmca_disabled"]:
+            add("figma-other-server", "warn",
+                f"You configured '{o['name']}' ({o['source']}) with {DMCA_PACKAGE}; its GitHub repository was disabled "
+                "after a DMCA notice. Spec2Ship does not use it.",
+                f"Remove it unless you need it: `claude mcp remove {o['name']}`.")
+        else:
+            add("figma-other-server", "ok",
+                f"You also configured '{o['name']}' ({o['source']}). It runs separately (port 1994); Spec2Ship only uses "
+                f"its own read-only bridge on port {BRIDGE_PORT}.")
+    manifest = bundled["figma_plugin_manifest"] if bundled else "vendor/figma-bridge/plugin/manifest.json"
     add("figma-bridge", "pending",
-        "Still required once per machine: in Figma Desktop import the figma-mcp-go plugin (Plugins → Development → "
-        "Import plugin from manifest, plugin.zip from github.com/vkhanhqui/figma-mcp-go/releases) and run it in the "
-        "design file. Check by calling `get_metadata`; 'plugin not connected' means it is not running.")
+        "Once per machine, in Figma Desktop: Plugins → Development → Import plugin from manifest → "
+        f"{manifest}. Then open the design file and run 'Spec2Ship Figma Bridge (read-only)'. "
+        "Check by calling `get_metadata`; 'No plugin connected' means it is not running.")
 
     g = _git_state(project_root)
     if g.get("repository"):
@@ -191,7 +202,7 @@ def run(project_root: Path) -> dict[str, Any]:
         add("git", "warn", "git not found on PATH.")
 
     blocking = [c for c in checks if c["blocking"] and c["status"] == "fail"]
-    return {"ok": not blocking, "checks": checks, "harness": h, "figma_servers": figma, "git": g}
+    return {"ok": not blocking, "checks": checks, "harness": h, "figma_servers": ([bundled] if bundled else []) + others, "git": g}
 
 
 def to_text(res: dict[str, Any]) -> str:

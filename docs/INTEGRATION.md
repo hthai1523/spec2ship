@@ -38,25 +38,29 @@ Source inspected: installed plugin cache `claude-code-harness@claude-code-harnes
 Adapter: `scripts/s2s/harness_adapter.py` (all Harness knowledge in one module). Compatibility policy: ≥ 4.0.0 is
 accepted; versions other than `TESTED_VERSIONS` produce a warning.
 
-## figma-mcp-go
+## Figma bridge (vendored read-only figma-mcp-bridge)
 
-Blueprint referenced `RamenSV/figma-mcp-go`. Its README (read 2026-11-09) instructs `npx -y @vkhanhqui/figma-mcp-go`
-and links the Figma plugin `plugin.zip` from `vkhanhqui/figma-mcp-go` releases. The npm page (HTTP 403) and the
-vkhanhqui GitHub repo (HTTP 451) could not be fetched in a browser-style request; the npm registry was then
-queried directly with `npm view` (2026-11-10).
+History:
+- **0.1.0 and 0.2.0** used `@vkhanhqui/figma-mcp-go`, run through `npx`; the blueprint referenced
+  `RamenSV/figma-mcp-go`.
+- **2026-11-10:** cloning `vkhanhqui/figma-mcp-go` returned HTTP 403. GitHub shows the repository disabled under a DMCA
+  notice ([github/dmca 2026-07-01-figma-mcp-bridge](https://github.com/github/dmca/blob/master/2026/07/2026-07-01-figma-mcp-bridge.md)).
+  The authors of `gethopp/figma-mcp-bridge` state that its server, leader/follower system and plugin were copied.
+- **0.3.0** therefore vendors the original MIT project instead, as a read-only fork. See
+  `vendor/figma-bridge/UPSTREAM.md`.
 
 | Item | Status | Detail |
 |---|---|---|
-| Package metadata | Verified (`npm view`) | `@vkhanhqui/figma-mcp-go` latest **0.1.3**, license **MIT**, `engines.node >=18.0.0`, repo `github.com/vkhanhqui/figma-mcp-go`, bin `bin/run.js` (Node launcher for prebuilt Go binaries: darwin/linux/windows × amd64/arm64) |
-| **Bundled in Spec2Ship** (0.2.0) | Verified (live) | plugin-root `.mcp.json` → `npx -y @vkhanhqui/figma-mcp-go@0.1.3`; in a `claude -p --plugin-dir` session Claude Code started it and exposed tools as **`mcp__plugin_spec2ship_figma-mcp-go__<tool>`**; `get_metadata` returned `plugin not connected` (Figma Desktop plugin not running) |
-| Multiple instances | Verified (live probe of the 0.1.3 Windows binary) | first instance becomes LEADER listening on `127.0.0.1:1994`; later instances log `[node] became FOLLOWER` and ping the leader (`→ 200 healthy=true`). A user's own figma-mcp-go config and the bundled one therefore coexist |
-| Local config on the test machine | Verified | `claude mcp get figma-mcp-go` → "Project config (shared via .mcp.json)", stdio, `npx -y @vkhanhqui/figma-mcp-go@latest`, defined in `~/.mcp.json` — i.e. Claude Code applies ancestor `.mcp.json` files; preflight now walks ancestors and warns that it is unpinned |
-| No Figma token / REST API | Documented | README: "doesn't use the API at all" |
-| Bridge | Documented + Verified failure mode | Figma Desktop → Plugins → Development → Import plugin from manifest → run plugin in the file. With the plugin not running, `get_metadata` returned the error **`plugin not connected`** (observed) |
-| Open-file scope | Verified (tool schemas) | tools read the current document/page; no file-key argument. Spec2Ship compares the URL name slug with `get_metadata`'s file name and asks the user when uncertain |
-| Node id format | Verified (tool schema) | colon format `4029:12345`, "never hyphens"; Spec2Ship converts URL `node-id=12-345` → `12:345` |
-| Read tools used (schemas loaded in-session) | Verified | `get_metadata()`, `get_pages()`, `get_node(nodeId)`, `get_nodes_info`, `get_design_context(depth, detail, dedupe_components)`, `search_nodes(query, nodeId, types, limit)`, `scan_text_nodes(nodeId)`, `get_annotations(nodeId?)`, `get_document()` (current page only, can be large) |
-| Write tools present (create_*, set_*, delete_* …) | Verified | Spec2Ship never calls them; the `figma-analyst` agent's tool allowlist excludes them |
+| Upstream | Verified (`gh repo view`, clone) | `gethopp/figma-mcp-bridge`, MIT, tag `v0.0.26`, commit `0a55fa4`, published 2026-11-09. TypeScript server (`@modelcontextprotocol/sdk`, `ws`, `zod`, Node ≥ 20) and Figma plugin (React + Vite) |
+| Read-only patch | Verified (`tests/smoke/test_figma_bridge.py`) | `tools/list` returns exactly 14 read tools; calling `delete_nodes` returns "Tool not found"; the leader's `/rpc` returns 403 for write tools, `run_script` and `save_screenshots`, and forwards reads |
+| Plugin-side guard | Verified (source and build check) | `handleRequest` in `plugin/src/main/code.ts` throws for any request type outside the read allowlist. `build.sh` fails if the guard is missing from `dist/code.js` |
+| **Bundled in Spec2Ship** (0.3.0) | Verified (live) | `.mcp.json` runs `node ${CLAUDE_PLUGIN_ROOT}/vendor/figma-bridge/dist/server.mjs`. In a `claude -p --plugin-dir` session (Claude Code 2.1.321), `${CLAUDE_PLUGIN_ROOT}` expanded, the server started, and exactly the 14 read tools appeared as **`mcp__plugin_spec2ship_figma-bridge__<tool>`**. `list_files` returned `[]`; `get_metadata` returned `No plugin connected. Open a Figma file and run the bridge plugin.` |
+| Port | Verified (probe) | Leader on `127.0.0.1:3994` (`FIGMA_BRIDGE_PORT`), so it never joins a stock bridge or figma-mcp-go on 1994. The plugin manifest allows only `ws://localhost:3994` |
+| Multiple Spec2Ship sessions | Inherited from upstream (leader/follower election on the same port) | Not separately tested in 0.3.0 |
+| No Figma token or REST API | Verified (source) | Data comes from the Figma plugin API inside Figma Desktop |
+| Multiple open files | Verified (source) | `list_files` returns `fileKey` and `fileName`; every tool accepts `fileKey`. Spec2Ship matches the URL file key exactly (`figma-check --open-file-key`) |
+| Node id format | Verified (schema) | Colon format `4029:12345`; Spec2Ship converts the URL's `node-id=12-345` to `12:345` |
+| Figma plugin build (`plugin/dist`) | **Pending** | `bash vendor/figma-bridge/build.sh plugin`. The automated session was not permitted to install the plugin's npm build dependencies; a maintainer builds and commits `plugin/dist` |
 | Successful capture with Figma Desktop running | **Not yet tested** | |
 
 ## BA parsing

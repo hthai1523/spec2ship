@@ -34,6 +34,9 @@ versioning: [SemVer](https://semver.org/).
 ### Removed
 - `.mcp.json.example` (superseded by the bundled `.mcp.json`).
 
+### Verified
+- 67 automated tests at the time of this release.
+
 ## [0.1.0] - 2026-11-10
 
 Initial vertical slice (preview). Not yet verified end-to-end: design capture with Figma Desktop running, and
@@ -58,7 +61,8 @@ claude-code-harness executing a handed-off plan.
   secret files). RTM, spec.md and delivery-report generators.
 
 ### Verified (see docs/INTEGRATION.md)
-- 64 automated tests (`python -m unittest discover -s tests -t .`), `claude plugin validate .` passes.
+- 64 automated tests at the time of this release (`python -m unittest discover -s tests -t .`), and
+  `claude plugin validate .` passes.
 - Clean-config marketplace install: `claude plugin marketplace add <path>` + `claude plugin install
   spec2ship@spec2ship-marketplace` → 9 commands, 7 skills, 5 agents, 2 hooks loaded.
 - Live headless session (`claude -p --plugin-dir`): `/spec2ship:spec2ship-approve <hash>` recorded intent via the

@@ -6,6 +6,8 @@ the developer instead of being invented.
 """
 from __future__ import annotations
 
+import os
+
 from typing import Any
 
 from .common import now_iso
@@ -177,7 +179,8 @@ def render_rtm_md(rtm: dict[str, Any]) -> str:
     return "\n".join(L) + "\n"
 
 
-def render_report(project: str, st: dict[str, Any], rtm: dict[str, Any], verification: dict[str, Any] | None) -> str:
+def render_report(project: str, st: dict[str, Any], rtm: dict[str, Any], verification: dict[str, Any] | None,
+                  project_root: str | None = None) -> str:
     m = rtm["metrics"]
     groups: dict[str, list[dict[str, Any]]] = {}
     for x in rtm["rows"]:
@@ -193,7 +196,13 @@ def render_report(project: str, st: dict[str, Any], rtm: dict[str, Any], verific
     appr = st.get("approval")
     L.append(f"- Plan approval: {'approved by ' + appr['approver'] + ' at ' + appr['approved_at'] + ' (plan ' + appr['plan_hash'][:12] + ')' if appr else '**not approved**'}")
     h = st.get("harness") or {}
-    L.append(f"- Harness ledger: {h.get('plans_path', 'not handed off')}")
+    ledger = h.get("plans_path")
+    if ledger and project_root:  # the report may be committed or shared: no machine-specific paths
+        try:
+            ledger = os.path.relpath(ledger, project_root).replace("\\", "/")
+        except ValueError:  # different drive on Windows
+            pass
+    L.append(f"- Harness ledger: {ledger or 'not handed off'}")
     L += ["", "## Requirement status", ""]
     L += grp("Verified (all acceptance criteria PASS with evidence)", ("verified",))
     L += grp("Implemented, not fully verified", ("implemented",))

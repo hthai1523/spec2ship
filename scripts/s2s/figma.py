@@ -1,9 +1,10 @@
 """Figma URL parsing and open-file matching helpers.
 
-figma-mcp-go reads the file that is *currently open* in Figma Desktop through
-its companion plugin (no REST API, no file-key parameter). Spec2Ship therefore
-parses the URL locally and then asks Claude to confirm, through the MCP tools,
-that the open file / node matches what the user referenced.
+The bundled read-only Figma bridge reads files that are *open* in Figma Desktop
+through its companion plugin (no REST API, no token). Spec2Ship parses the URL
+locally and then asks Claude to confirm, through the MCP tools, that the open
+file / node matches what the user referenced (by file key when the bridge
+reports one, otherwise by file name).
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ _NODE_RE = re.compile(r"^(I?\d+)[:-](\d+)((?:;\d+[:-]\d+)*)$")
 
 
 def normalize_node_id(raw: str) -> str:
-    """'12-345' / '12%3A345' / '12:345' -> '12:345' (format required by figma-mcp-go)."""
+    """'12-345' / '12%3A345' / '12:345' -> '12:345' (format required by the Figma plugin API)."""
     value = unquote(raw).strip()
     m = _NODE_RE.match(value)
     if not m:
@@ -71,12 +72,20 @@ def _norm_name(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", s.lower())
 
 
-def match_open_file(url_info: dict[str, Any], open_file_name: str | None) -> dict[str, Any]:
-    """Heuristically compare the URL name slug with the open file name.
+def match_open_file(url_info: dict[str, Any], open_file_name: str | None,
+                    open_file_key: str | None = None) -> dict[str, Any]:
+    """Compare the referenced file with the file open in Figma Desktop.
 
-    The MCP cannot confirm the file key, so the result is a confidence level that
-    must be confirmed by the user when it is not 'high'.
+    A file key reported by the bridge (`list_files`) is decisive. Otherwise the URL
+    name slug is compared heuristically with the open file name, and anything but
+    'high' must be confirmed by the user.
     """
+    key = url_info.get("file_key")
+    if open_file_key and key:
+        if open_file_key == key:
+            return {"match": "high", "reason": f"Open file key {open_file_key} equals the URL file key."}
+        return {"match": "low", "reason": f"Open file key {open_file_key} differs from the URL file key {key}. "
+                                          "Ask the user to open the referenced file in Figma Desktop."}
     slug = url_info.get("name_slug")
     if not open_file_name:
         return {"match": "unknown", "reason": "Open file name not available from the Figma MCP."}

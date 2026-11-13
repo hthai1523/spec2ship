@@ -1,0 +1,1 @@
+CREATE TABLE "Customer" ("id" SERIAL PRIMARY KEY);
