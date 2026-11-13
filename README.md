@@ -47,27 +47,50 @@ the Figma manifest path to import.
 
 ## Prerequisites
 
-| Requirement | Why | Installer | Tested with |
-|---|---|---|---|
-| Claude Code | plugin host | checks only | 2.1.321 |
-| Python ≥ 3.9 | local helper scripts (stdlib only) | winget / brew / apt | 3.14.5 |
-| Node.js ≥ 20 | runs the **bundled** read-only Figma bridge (no download) | winget / brew / apt | 24.16.0 |
-| Git (Windows: Git Bash) | hook launcher | winget / brew / apt | 2.54.0 |
-| [claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) plugin | task ledger, Work, Review | `claude plugin install` | 4.12.11 (≥ 4.0 accepted) |
-| Figma Desktop + the bundled "Spec2Ship Figma Bridge (read-only)" plugin | design capture (the browser version cannot run development plugins) | winget / brew cask; plugin import is manual | — |
-| `pdftotext` (poppler) or `pypdf`, optional | more reliable PDF text extraction | `pip install --user pypdf` | poppler (Git for Windows) |
+| Requirement | Why | Tested with |
+|---|---|---|
+| Claude Code | plugin host | 2.1.319 |
+| Python ≥ 3.9 on PATH (`python3` or `python`) | local helper scripts (stdlib only) | 3.14.5 |
+| [Harness](https://github.com/Chachamaru127/claude-code-harness) plugin (`harness`, formerly `claude-code-harness`) | task ledger, Work, Review | 4.12.11 (≥ 4.0 accepted); 5.16.0 installs but is not yet verified |
+| Node.js ≥ 18 with `npx` | runs the **bundled** figma-mcp-go MCP server | Node 24.16.0 |
+| figma-mcp-go plugin in Figma Desktop (one-time import) | bridge between Figma Desktop and the MCP server | figma-mcp-go 0.1.3 |
+| `pdftotext` (poppler) or `pip install pypdf` — optional | reliable PDF text extraction | poppler `pdftotext` (Git for Windows build) |
+| `bash` | hook launcher | Git Bash on Windows |
 
 ## Install manually
+
+**One command** — adds both marketplaces and installs Harness + Spec2Ship (safe to re-run):
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.ps1 | iex
+```
+```bash
+# macOS / Linux / Git Bash
+curl -fsSL https://raw.githubusercontent.com/XuanDuy2309/spec2ship/main/scripts/install.sh | bash
+```
+
+Inside a Claude Code session, prefix the command with `!` to run it there. Restart Claude Code afterwards, then run
+`/spec2ship:spec2ship-setup`. Both scripts need the `claude` CLI on PATH. To install from a local checkout or fork, set
+`SPEC2SHIP_SOURCE` first (e.g. `$env:SPEC2SHIP_SOURCE='D:\src\spec2ship'` or `SPEC2SHIP_SOURCE=/path bash scripts/install.sh`).
+
+<details><summary>Manual install (the same steps, one by one)</summary>
 
 ```text
 /plugin marketplace add Chachamaru127/claude-code-harness
 /plugin install harness@claude-code-harness-marketplace
 
-/plugin marketplace add hthai1523/spec2ship        # this repository (it is its own marketplace)
+/plugin marketplace add hthai1523/spec2ship      # this repository (it is its own marketplace)
 /plugin install spec2ship@spec2ship-marketplace
 ```
 
-Restart Claude Code after installing. For a local checkout, use `/plugin marketplace add /path/to/spec2ship`, or
+**VS Code extension:** type `/plugins` in the chat box → *Marketplaces* tab: add `Chachamaru127/claude-code-harness`
+and `hthai1523/spec2ship` → *Plugins* tab: install `harness`, then `spec2ship` (scope *Install for you*). The
+extension shares `~/.claude/settings.json` with the CLI, so either one sees what the other installed. Installing the
+extension does not put `claude` on your PATH, and the `!` shell shortcut is CLI-only; use the integrated terminal for
+shell commands. Add both marketplaces before installing, otherwise Spec2Ship's Harness prerequisite is missing.
+
+Restart Claude Code after installing. Local checkout: `/plugin marketplace add /path/to/spec2ship`, or
 `claude --plugin-dir /path/to/spec2ship` for a single session.
 
 ### Update
@@ -248,12 +271,11 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
 
 | Symptom | Fix |
 |---|---|
-| `[FAIL] harness` | install/enable claude-code-harness, restart Claude Code |
-| `[FAIL] node-runtime` | install Node.js 20+ (the installer can do it), restart Claude Code |
-| `[FAIL] figma-plugin` | update Spec2Ship; maintainers: `bash vendor/figma-bridge/build.sh plugin` |
-| figma tools missing in `/mcp` | check Node.js 20+, restart Claude Code |
-| `No plugin connected` / `list_files` is empty | open Figma Desktop, open the file, run "Spec2Ship Figma Bridge (read-only)" |
-| `[WARN] figma-other-server` mentions DMCA | you still have `@vkhanhqui/figma-mcp-go` configured; Spec2Ship does not use it |
+| `[FAIL] harness` | install/enable Harness: `/plugin install harness@claude-code-harness-marketplace` (in the VS Code extension: `/plugins` → *Plugins* tab), restart Claude Code |
+| `Plugin "claude-code-harness" not found in marketplace` | the plugin was renamed: install `harness@claude-code-harness-marketplace` |
+| `[FAIL] node-runtime` | install Node.js 18+ (bundled figma-mcp-go is started with `npx`), restart Claude Code |
+| figma tools missing in `/mcp` | check Node/npx and network for the first `npx` download; restart Claude Code |
+| `plugin not connected` | open Figma Desktop, open the file, run the figma-mcp-go plugin |
 | `OCR_REQUIRED` | export a text PDF/DOCX/Markdown or OCR the PDF locally |
 | `section '...' not found` / `possible hallucination` | the requirement's citation does not match the parsed BA; fix the citation |
 | `Plan hash mismatch` | the plan changed after review; run `/spec2ship-plan` and approve the new hash |
@@ -262,41 +284,44 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
 
 ## Hướng dẫn nhanh (Tiếng Việt)
 
-1. **Cài đặt bằng một lệnh.** Script tự kiểm tra và chỉ cài những gì còn thiếu, hỏi trước mỗi bước:
-   - Windows: tải `install/install.ps1` (lệnh ở mục [Quick install](#quick-install-one-command)), rồi chạy
-     `powershell -ExecutionPolicy Bypass -File install-spec2ship.ps1`.
-   - macOS/Linux: `bash install-spec2ship.sh`.
+1. **Cài đặt** — chọn một trong hai cách. Cả hai đều cần thêm marketplace trước rồi mới cài plugin, và đều cần
+   cài **cả hai** plugin `harness` và `spec2ship`. Plugin Harness đã đổi tên từ `claude-code-harness` thành `harness`
+   (tên repo trên GitHub vẫn là `claude-code-harness`).
 
-   Muốn chỉ kiểm tra mà không cài gì thì thêm `-CheckOnly` (Windows) hoặc `--check-only` (macOS/Linux).
-
-   Nếu cài tay trong Claude Code:
+   **a) Claude Code CLI (terminal)** — gõ trong phiên Claude Code:
    ```text
    /plugin marketplace add Chachamaru127/claude-code-harness
-   /plugin install claude-code-harness@claude-code-harness-marketplace
    /plugin marketplace add hthai1523/spec2ship
+   /plugin install harness@claude-code-harness-marketplace
    /plugin install spec2ship@spec2ship-marketplace
    ```
-   Cài xong thì khởi động lại Claude Code.
-2. **Figma:**
-   - Không cần cấu hình MCP. Bridge đọc Figma (bản chỉ đọc) đã có sẵn trong plugin, chạy bằng Node.js 20+ và không
-     tải thêm gì.
-   - Chỉ cần nhập plugin vào Figma Desktop một lần: *Plugins → Development → Import plugin from manifest…*, chọn file
-     `vendor/figma-bridge/plugin/manifest.json` trong thư mục plugin. Lệnh `/spec2ship:spec2ship-setup` in ra đường
-     dẫn chính xác.
-   - Mỗi lần dùng: mở file thiết kế rồi chạy **Spec2Ship Figma Bridge (read-only)**.
-3. **Kiểm tra:** chạy `/spec2ship:spec2ship-setup`. Lệnh này liệt kê những gì còn thiếu.
-4. **Xem demo:** `python examples/customer-management/run-demo.py` chạy toàn bộ luồng trên dữ liệu mẫu trong khoảng
-   2 giây, không cần Claude hay Figma.
-5. **Chạy thật:** `/spec2ship <figma-url> --ba docs/BA/tai-lieu.docx`.
-   - Tài liệu BA có thể là PDF, DOCX hoặc Markdown, viết bằng tiếng Việt hoặc tiếng Anh.
-   - Các file kết quả mặc định bằng tiếng Anh; trích dẫn giữ nguyên ngôn ngữ gốc.
-6. **Duyệt kế hoạch:** đọc `spec.md`, `Plans.md` và RTM, rồi **tự gõ** `/spec2ship:spec2ship-approve <mã-hash>`.
+
+   **b) Extension Claude Code (VS Code)** — dùng giao diện, không cần `claude` trong PATH:
+   1. Trong ô chat gõ `/plugins` để mở **Manage plugins**.
+   2. Tab **Marketplaces**: thêm lần lượt `Chachamaru127/claude-code-harness` và `hthai1523/spec2ship`.
+   3. Tab **Plugins**: bấm **Install** cho `harness` rồi `spec2ship`; chọn **Install for you** để dùng cho mọi dự án.
+   4. Khi cần cập nhật: tab **Marketplaces** → biểu tượng làm mới (refresh) của từng marketplace.
+
+   Extension và CLI dùng chung `~/.claude/settings.json`, nên cài bên nào thì bên kia cũng thấy. Cài extension **không**
+   đưa lệnh `claude` vào PATH, và ký tự `!` (chạy lệnh trong phiên) chỉ có ở CLI. Cần chạy lệnh shell thì mở terminal
+   tích hợp (``Ctrl+` ``). Thao tác trên extension dựa theo tài liệu chính thức; phần kiểm chứng của dự án (hook duyệt
+   kế hoạch, v.v.) mới chạy thật trên CLI.
+
+   Khởi động lại Claude Code (hoặc cửa sổ VS Code) sau khi cài. Máy cần Python 3.9+, Node.js 18+ và bash (Windows: Git Bash).
+2. **Figma:** không cần cấu hình MCP, vì server figma-mcp-go đã được đóng gói sẵn trong plugin. Chỉ cần nhập plugin
+   figma-mcp-go vào Figma Desktop một lần (*Plugins → Development → Import plugin from manifest…*, dùng `manifest.json`
+   trong `plugin.zip` từ [releases](https://github.com/vkhanhqui/figma-mcp-go/releases)), rồi chạy plugin đó trong file
+   thiết kế mỗi lần dùng.
+3. **Kiểm tra:** `/spec2ship:spec2ship-setup`.
+4. **Chạy:** `/spec2ship <figma-url> --ba docs/BA/tai-lieu.docx`. Tài liệu BA có thể ở dạng PDF, DOCX hoặc Markdown,
+   viết bằng tiếng Việt hoặc tiếng Anh. Các file kết quả mặc định viết bằng tiếng Anh, còn trích dẫn giữ nguyên ngôn
+   ngữ gốc.
+5. **Duyệt kế hoạch:** đọc `spec.md`, `Plans.md` và RTM, rồi **tự gõ** `/spec2ship:spec2ship-approve <mã-hash>`.
    Claude không thể duyệt thay anh/chị.
 7. **Thực thi và kiểm chứng:** chạy `/spec2ship-work` để giao việc cho Harness, sau đó `/spec2ship-review` và
    `/spec2ship-verify`. Báo cáo cuối nằm ở `.spec2ship/reports/report.md`.
-8. **Đo hiệu quả trên ticket thật:** xem [docs/EVALUATION.md](docs/EVALUATION.md).
-9. **Cập nhật plugin:** `/plugin marketplace update spec2ship-marketplace`, rồi
-   `/plugin update spec2ship@spec2ship-marketplace`.
+7. **Cập nhật plugin:** CLI — `/plugin marketplace update spec2ship-marketplace`, rồi `/plugin update spec2ship@spec2ship-marketplace`.
+   Extension — làm mới marketplace trong `/plugins` (tab **Marketplaces**).
 
 ## Documentation
 
