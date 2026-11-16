@@ -5,6 +5,11 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-16
+
+### Changed
+- Harness install command in the README and `/spec2ship-setup`: `/plugin install harness@claude-code-harness-marketplace`.
+
 ## [0.3.0] - 2026-11-10
 
 ### Security

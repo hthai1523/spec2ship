@@ -28,7 +28,7 @@ argument-hint: (no arguments)
      - Windows: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/install/install.ps1"`
      - macOS/Linux: `bash "${CLAUDE_PLUGIN_ROOT}/install/install.sh"`
    - **Harness:** `/plugin marketplace add Chachamaru127/claude-code-harness` and
-     `/plugin install claude-code-harness@claude-code-harness-marketplace`.
+     `/plugin install harness@claude-code-harness-marketplace`.
    - **Node.js 20+**, if `node-runtime` failed.
    - **Other Figma servers:** if preflight reports `figma-other-server`, the developer's own Figma MCP server can
      stay. It runs separately on port 1994, while Spec2Ship uses port 3994.
