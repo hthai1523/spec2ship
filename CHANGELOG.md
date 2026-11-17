@@ -5,6 +5,8 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-17
+
 ### Changed
 - `/spec2ship` works without Figma or without a BA document. `--figma` and `--ba` are optional; requirements need
   `--ba` or written instructions.

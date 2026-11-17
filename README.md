@@ -12,7 +12,7 @@ Spec2Ship is a Claude Code plugin.
 - **After approval:** execution is delegated to claude-code-harness. Spec2Ship then records review and test evidence
   and writes a delivery report that keeps *implemented*, *verified*, *blocked* and *deferred* apart.
 
-> Status: **0.3.1 preview.** Two parts are not yet verified end-to-end: live Figma capture, and Harness executing a
+> Status: **0.4.0 preview.** Two parts are not yet verified end-to-end: live Figma capture, and Harness executing a
 > handed-off plan. See [What is tested](#what-is-tested) and [Limitations](#limitations).
 >
 > **New in 0.3.0:**
