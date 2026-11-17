@@ -56,5 +56,6 @@ The bridge itself refuses every design edit, and Spec2Ship never modifies design
    - `nodes[]`, with `id`, `name`, `type`, `page`, `texts`, `components`, `states` and `annotations`. Include only what
      you fetched. Use `annotations` for dev notes found in the design, if any.
    - `tools_called`: the tools you called.
-7. **If the bridge is unavailable** and the developer chooses to continue, write `status: "unavailable"` with
+7. **No Figma URL in the run:** `init` already wrote `status: "unavailable"`. Do nothing.
+8. **If the bridge is unavailable** and the developer chooses to continue, write `status: "unavailable"` with
    `unavailable_reason` and empty `nodes`. UI requirements will then be listed as unmapped (`figma_unavailable`).

@@ -15,6 +15,8 @@ Output: `.spec2ship/mappings/figma-mapping.json` (schema `schemas/figma-mapping.
 3. Only cite node ids present in `figma-context.json`. The validator rejects others.
 4. Requirements without a design go to `unmapped_requirements` with a reason: `no_ui` (backend-only),
    `design_missing`, `figma_unavailable`, `unclear`.
+   When `figma-context.json` has `status: "unavailable"` (no Figma URL, or the bridge could not be read), write
+   `mappings: []` and list every UI requirement as `figma_unavailable`; backend-only ones stay `no_ui`.
 5. Design elements with no requirement go to `unmapped_nodes` (possible missing requirement or out-of-scope design).
 6. **Conflicts**: when the design contradicts the BA (different fields, rules, flows, copy that changes behavior),
    add a `conflicts[]` entry and an ambiguity (`kind: conflict`, `blocking: true` if behavior differs) on the

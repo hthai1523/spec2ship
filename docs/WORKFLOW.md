@@ -26,7 +26,7 @@ stateDiagram-v2
 
 | Step | Command | Writes |
 |---|---|---|
-| start | `init --figma URL --ba PATH [--ba PATH] [--instructions T] [--force-new]` | state.json, run.json |
+| start | `init [--figma URL] [--ba PATH ...] [--instructions T] [--force-new]` (needs `--ba` or `--instructions`) | state.json, run.json |
 | checks | `preflight`, `figma-check --open-file-name N --node-found yes\|no` or `--error MSG` | state.preflight / figma_check |
 | BA | `parse-ba` (exit 3 = OCR required) | analysis/ba-normalized.json |
 | repo | `repo-analyze` | analysis/repository-analysis.{json,md} |

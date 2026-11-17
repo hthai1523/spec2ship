@@ -46,7 +46,7 @@ def state_path(ws: Path) -> Path:
 def load(ws: Path) -> dict[str, Any]:
     p = state_path(ws)
     if not p.exists():
-        raise Spec2ShipError(f"No Spec2Ship run found at {ws}. Start one with /spec2ship <figma-url> --ba <path>.")
+        raise Spec2ShipError(f"No Spec2Ship run found at {ws}. Start one with /spec2ship [<figma-url>] [--ba <path>] [instructions].")
     return read_json(p)
 
 

@@ -8,7 +8,7 @@
   "properties": {
     "schema_version": { "const": "1.0" },
     "url": {
-      "type": "object",
+      "type": ["object", "null"],
       "required": ["file_key"],
       "properties": {
         "url": { "type": "string" },

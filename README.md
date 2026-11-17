@@ -138,13 +138,24 @@ Outputs are committed in [`examples/customer-management/expected/`](examples/cus
 8. **Verification:** `/spec2ship-review` and `/spec2ship-verify` record evidence and produce the RTM and
    `reports/report.md`.
 
+Figma and the BA document are each optional. Requirements need a source: a BA document or written instructions.
+
+| Inputs | Command |
+|---|---|
+| BA only | `/spec2ship --ba docs/BA/customer-management.pdf` |
+| Figma + written requirements | `/spec2ship <figma-url> Add a customer list with search and paging` |
+| Written requirements only | `/spec2ship Add a customer list with search and paging` |
+
+Without Figma, UI requirements are listed as unmapped (`figma_unavailable`). Without a BA document, the instructions
+are saved as `.spec2ship/inputs/developer-requirements.md` and cited like a BA document.
+
 Installed plugin commands are namespaced: type `/spec2ship:spec2ship-setup`, `/spec2ship:spec2ship-approve`, and so on.
 The short forms below may also resolve when they are unambiguous. The approve command was verified only in
 namespaced form.
 
 | Command | Purpose |
 |---|---|
-| `/spec2ship <figma-url> --ba <path>` | full workflow up to plan approval |
+| `/spec2ship [<figma-url>] [--ba <path>] [instructions]` | full workflow up to plan approval |
 | `/spec2ship-setup` | checks every prerequisite and lists exactly what is missing |
 | `/spec2ship-analyze [ba\|figma\|repo\|mapping]` | (re)run analysis parts |
 | `/spec2ship-plan [change]` | generate/update spec, RTM, Harness plan; present for approval |
@@ -198,7 +209,7 @@ namespaced form.
 ## What is tested
 
 Run `python -m unittest discover -s tests -t .`. The suite has unit, artifact-validation, integration and smoke tests,
-with no model calls and no network beyond localhost (77 tests). It covers:
+with no model calls and no network beyond localhost (80 tests). It covers:
 - parsers: EN/VI fixtures, scanned PDF, built-in PDF fallback;
 - Figma URL handling and file-key matching;
 - the state machine;
@@ -288,6 +299,8 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
 4. **Xem demo:** `python examples/customer-management/run-demo.py` chạy toàn bộ luồng trên dữ liệu mẫu trong khoảng
    2 giây, không cần Claude hay Figma.
 5. **Chạy thật:** `/spec2ship <figma-url> --ba docs/BA/tai-lieu.docx`.
+   - Figma và tài liệu BA đều có thể bỏ, nhưng phải có BA hoặc mô tả yêu cầu: `/spec2ship --ba docs/BA/tai-lieu.docx`,
+     `/spec2ship <figma-url> <mô tả yêu cầu>` hoặc `/spec2ship <mô tả yêu cầu>`.
    - Tài liệu BA có thể là PDF, DOCX hoặc Markdown, viết bằng tiếng Việt hoặc tiếng Anh.
    - Các file kết quả mặc định bằng tiếng Anh; trích dẫn giữ nguyên ngôn ngữ gốc.
 6. **Duyệt kế hoạch:** đọc `spec.md`, `Plans.md` và RTM, rồi **tự gõ** `/spec2ship:spec2ship-approve <mã-hash>`.

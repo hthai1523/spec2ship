@@ -33,4 +33,4 @@ argument-hint: (no arguments)
    - **Other Figma servers:** if preflight reports `figma-other-server`, the developer's own Figma MCP server can
      stay. It runs separately on port 1994, while Spec2Ship uses port 3994.
 4. Summarize: READY / READY WITH WARNINGS / BLOCKED, the list of what is still missing, and the next command
-   (`/spec2ship <figma-url> --ba <path>`).
+   (`/spec2ship <figma-url> --ba <path>`; Figma and the BA document are each optional, see README).

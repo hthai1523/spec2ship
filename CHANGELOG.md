@@ -5,6 +5,14 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- `/spec2ship` works without Figma or without a BA document. `--figma` and `--ba` are optional; requirements need
+  `--ba` or written instructions.
+  - No Figma URL: `init` records the design as unavailable and UI requirements are listed as `figma_unavailable`.
+  - No BA document: the instructions are saved as `.spec2ship/inputs/developer-requirements.md` and cited like a BA
+    document.
+- **Tests:** 80 automated tests in total.
+
 ## [0.3.1] - 2026-11-16
 
 ### Changed

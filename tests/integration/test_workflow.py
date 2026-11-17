@@ -327,6 +327,57 @@ class PreflightAndInputs(unittest.TestCase):
         finally:
             tp.cleanup()
 
+    def test_requirement_source_is_required(self):
+        tp = TempProject()
+        try:
+            code, _, err = run_cli(tp.project, "init")
+            self.assertNotEqual(code, 0)
+            self.assertIn("Nothing to work from", err)
+            code, _, err = run_cli(tp.project, "init", "--figma", FIGMA_URL)
+            self.assertNotEqual(code, 0)
+            self.assertIn("Requirements need a source", err)
+            self.assertFalse((tp.ws / "state.json").exists())
+        finally:
+            tp.cleanup()
+
+    def test_ba_without_figma(self):
+        tp = TempProject()
+        try:
+            code, out, err = run_cli(tp.project, "init", "--ba", "docs/BA/customer-management.md")
+            self.assertEqual(code, 0, err)
+            ctx = json.loads((tp.ws / "analysis" / "figma-context.json").read_text(encoding="utf-8"))
+            self.assertEqual(ctx["status"], "unavailable")
+            self.assertIsNone(ctx["url"])
+            code, _, err = run_cli(tp.project, "figma-check", "--open-file-name", "x")
+            self.assertNotEqual(code, 0)
+            self.assertIn("no Figma URL", err)
+            run_cli(tp.project, "preflight")
+            code, out, err = run_cli(tp.project, "parse-ba")
+            self.assertEqual(code, 0, err)
+            code, out, _ = run_cli(tp.project, "validate")
+            self.assertIn("Figma context unavailable", out)
+            self.assertFalse([l for l in out.splitlines() if l.startswith("ERROR") and "figma-context" in l], out)
+        finally:
+            tp.cleanup()
+
+    def test_instructions_only_become_cited_source(self):
+        tp = TempProject()
+        try:
+            text = "Them man hinh danh sach khach hang co tim kiem va phan trang."
+            code, out, err = run_cli(tp.project, "init", "--instructions", text)
+            self.assertEqual(code, 0, err)
+            doc = tp.ws / "inputs" / "developer-requirements.md"
+            self.assertIn(text, doc.read_text(encoding="utf-8"))
+            self.assertEqual(json.loads((tp.ws / "analysis" / "figma-context.json").read_text(encoding="utf-8"))["status"], "unavailable")
+            run_cli(tp.project, "preflight")
+            code, out, err = run_cli(tp.project, "parse-ba")
+            self.assertEqual(code, 0, err)
+            self.assertEqual(json.loads(out)["state"], "ANALYSIS")
+            norm = (tp.ws / "analysis" / "ba-normalized.json").read_text(encoding="utf-8")
+            self.assertIn("phan trang", norm)
+        finally:
+            tp.cleanup()
+
     def test_scanned_pdf_blocks_analysis(self):
         tp = TempProject()
         try:

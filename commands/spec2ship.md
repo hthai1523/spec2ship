@@ -1,6 +1,6 @@
 ---
 description: Run the Spec2Ship workflow — BA document + Figma design + this repo → traceable spec, RTM and Harness plan, then stop for developer approval
-argument-hint: <figma-url> --ba <path> [--ba <path>...] [instructions]
+argument-hint: "[<figma-url>] [--ba <path>...] [instructions]  (needs --ba or instructions)"
 ---
 
 # /spec2ship
@@ -30,10 +30,16 @@ Windows if `python3` is unavailable). Run it from the project root with the Bash
 1. **Resume check.** If `.spec2ship/state.json` exists, run `S2S status` and continue from the reported state
    instead of starting over (offer `--force-new` only if the developer wants a fresh run).
 2. **Init.** Parse `$ARGUMENTS`: the first URL is the Figma URL; each `--ba <path>` is a BA document; remaining text is
-   developer instructions. Run `S2S init --figma "<url>" --ba "<path>" [--instructions "<text>"]`. If it fails
-   (invalid URL, missing/unsupported file), report the error and stop.
+   developer instructions. Every input is optional, but requirements need a source: a BA document or written
+   instructions. Run `S2S init [--figma "<url>"] [--ba "<path>"...] [--instructions "<text>"]`, passing only what was
+   given. If it fails (invalid URL, missing/unsupported file, no requirement source), report the error and stop.
+   - **No BA document:** `init` saves the instructions as `.spec2ship/inputs/developer-requirements.md` and treats it
+     as the BA document, so requirements cite it like any other source. Short instructions give few requirements and
+     many open questions; ask them in step 7 instead of guessing.
+   - **No Figma URL:** `init` writes `analysis/figma-context.json` with `status: "unavailable"`. Skip step 4 and the
+     design part of step 5.
 3. **Preflight.** Run `S2S preflight`. If the result is BLOCKED, show the FAIL items with their fixes and stop.
-4. **Figma bridge check.** Call the bundled bridge's `list_files` and `get_metadata` tools
+4. **Figma bridge check** (only when the run has a Figma URL). Call the bundled bridge's `list_files` and `get_metadata` tools
    (`mcp__plugin_spec2ship_figma-bridge__list_files`, `mcp__plugin_spec2ship_figma-bridge__get_metadata`).
    - Error `No plugin connected` (or the tools are missing): run `S2S figma-check --error "<message>"`. Tell the
      developer to open the file in Figma Desktop and run "Spec2Ship Figma Bridge (read-only)"; the preflight
@@ -48,7 +54,7 @@ Windows if `python3` is unavailable). Run it from the project root with the Bash
    - `S2S repo-analyze` → `analysis/repository-analysis.md`.
    - Requirements: follow the `ba-analysis` skill (optionally delegate to the `ba-analyst` agent) to write
      `analysis/requirements.json`.
-   - Design: follow the `figma-analysis` skill (optionally the `figma-analyst` agent) to write
+   - Design (only with a Figma URL): follow the `figma-analysis` skill (optionally the `figma-analyst` agent) to write
      `analysis/figma-context.json`, fetching only relevant pages/nodes.
 6. **Mapping.** Follow the `requirement-mapping` skill to write `mappings/figma-mapping.json`.
    Run `S2S validate --stage plan` and fix every ERROR (they usually mean a citation does not match the source).

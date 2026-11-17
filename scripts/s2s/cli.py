@@ -72,11 +72,19 @@ def _project_name(ws: Path, root: Path) -> str:
 
 # ---------------------------------------------------------------------- commands
 
+INSTRUCTIONS_DOC = "developer-requirements.md"
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     root, ws = _ctx(args)
-    url_info = figma.parse_figma_url(args.figma)
+    instructions = (args.instructions or "").strip()
+    if not args.figma and not args.ba and not instructions:
+        raise Spec2ShipError("Nothing to work from: give a Figma URL (--figma), a BA document (--ba) or written requirements (--instructions).")
+    if not args.ba and not instructions:
+        raise Spec2ShipError("Requirements need a source: give a BA document (--ba) or written requirements (--instructions).")
+    url_info = figma.parse_figma_url(args.figma) if args.figma else None
     bas = []
-    for b in args.ba:
+    for b in args.ba or []:
         p = Path(b)
         p = p if p.is_absolute() else (root / p)
         p = p.resolve()
@@ -105,6 +113,21 @@ def cmd_init(args: argparse.Namespace) -> int:
             shutil.move(str(item), str(archive / item.name))
     for d in WORKSPACE_DIRS:
         (ws / d).mkdir(parents=True, exist_ok=True)
+    if not bas:
+        # No BA document: the developer's written requirements become the cited source, so every requirement
+        # still traces to text that exists and the quote/section checks keep working.
+        p = ws / "inputs" / INSTRUCTIONS_DOC
+        write_text(p, "# Developer requirements\n\n" + instructions + "\n")
+        try:
+            shown = p.relative_to(root).as_posix()
+        except ValueError:
+            shown = str(p)
+        bas.append({"path": shown, "abs_path": str(p), "sha256": sha256_file(p), "format": "markdown",
+                    "origin": "instructions"})
+    if url_info is None:
+        write_json(ws / "analysis" / "figma-context.json", {
+            "schema_version": "1.0", "url": None, "status": "unavailable",
+            "unavailable_reason": "No Figma URL was given for this run.", "nodes": []})
     inputs = {"figma": url_info, "ba": bas, "instructions": args.instructions or "", "project_root": str(root)}
     st = state.create(ws, inputs)
     write_json(ws / "run.json", {"run_id": st["run_id"], "created_at": now_iso(), "inputs": inputs,
@@ -138,6 +161,9 @@ def cmd_figma_check(args: argparse.Namespace) -> int:
     root, ws = _ctx(args)
     st = state.load(ws)
     url_info = st["inputs"]["figma"]
+    if url_info is None:
+        raise Spec2ShipError("This run has no Figma URL; there is no design to check. "
+                             "analysis/figma-context.json already records the design as unavailable.")
     rec: dict[str, Any] = {"at": now_iso()}
     if args.error:
         rec.update({"ready": False, "error": args.error,
@@ -569,9 +595,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("init", help="validate inputs and create a run")
-    s.add_argument("--figma", required=True)
-    s.add_argument("--ba", required=True, action="append")
-    s.add_argument("--instructions")
+    s.add_argument("--figma", help="Figma design URL (optional; without it the design is recorded as unavailable)")
+    s.add_argument("--ba", action="append", help="BA document (.pdf/.docx/.md); repeatable; optional when --instructions is given")
+    s.add_argument("--instructions", help="developer instructions; without --ba they are the requirement source")
     s.add_argument("--force-new", action="store_true")
     s.set_defaults(fn=cmd_init)
 
