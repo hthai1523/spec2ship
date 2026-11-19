@@ -5,6 +5,8 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-19
+
 ### Added
 - **Auto mode (preview):** `/spec2ship:spec2ship-auto <idea>` runs idea → requirements → Figma design → plan →
   Harness work → tests → visual match without further prompts.
