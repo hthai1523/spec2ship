@@ -5,6 +5,20 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Auto mode (preview):** `/spec2ship:spec2ship-auto <idea>` runs idea → requirements → Figma design → plan →
+  Harness work → tests → visual match without further prompts.
+  - Your typed command authorizes one run (recorded by the `UserPromptSubmit` hook). Plans are then approved as
+    `auto-mode` (`approve --auto`). Claude cannot start auto mode or forge the authorization.
+  - The new `figma-designer` agent and `figma-design` skill draw the screens through a write-capable Figma MCP server
+    named `figma-mcp-go`. The agent has no delete tools and draws only on its own page.
+  - `visual-compare` compares Playwright screenshots with the Figma exports (Pillow). The `visual-verification` skill
+    drives it.
+  - Fix rounds add tasks and hand off to Harness again, keeping Harness progress, up to `--max-rounds`.
+  - A `Stop` hook keeps an auto run going until COMPLETED or BLOCKED, with bounded continuations.
+  - `preflight --auto` checks the Figma writer, Pillow and Playwright.
+- **Tests:** 93 automated tests in total.
+
 ## [0.4.0] - 2026-11-17
 
 ### Changed

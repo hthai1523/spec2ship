@@ -115,7 +115,7 @@ def _git_state(project_root: Path) -> dict[str, Any]:
         return {"available": True, "repository": None}
 
 
-def run(project_root: Path) -> dict[str, Any]:
+def run(project_root: Path, auto: bool = False) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
 
     def add(name: str, status: str, detail: str, fix: str | None = None, blocking: bool = False) -> None:
@@ -178,7 +178,8 @@ def run(project_root: Path) -> dict[str, Any]:
         if o["dmca_disabled"]:
             add("figma-other-server", "warn",
                 f"You configured '{o['name']}' ({o['source']}) with {DMCA_PACKAGE}; its GitHub repository was disabled "
-                "after a DMCA notice. Spec2Ship does not use it.",
+                "after a DMCA notice. " + ("Auto mode uses it to draw the design; it is your own server and your choice."
+                                           if auto and o["name"] == AUTO_FIGMA_SERVER else "Spec2Ship does not use it."),
                 f"Remove it unless you need it: `claude mcp remove {o['name']}`.")
         else:
             add("figma-other-server", "ok",
@@ -189,6 +190,9 @@ def run(project_root: Path) -> dict[str, Any]:
         "Once per machine, in Figma Desktop: Plugins → Development → Import plugin from manifest → "
         f"{manifest}. Then open the design file and run 'Spec2Ship Figma Bridge (read-only)'. "
         "Check by calling `get_metadata`; 'No plugin connected' means it is not running.")
+
+    if auto:
+        _auto_checks(project_root, others, add)
 
     g = _git_state(project_root)
     if g.get("repository"):
@@ -202,6 +206,47 @@ def run(project_root: Path) -> dict[str, Any]:
 
     blocking = [c for c in checks if c["blocking"] and c["status"] == "fail"]
     return {"ok": not blocking, "checks": checks, "harness": h, "figma_servers": ([bundled] if bundled else []) + others, "git": g}
+
+
+AUTO_FIGMA_SERVER = "figma-mcp-go"  # MCP server name whose write tools (mcp__figma-mcp-go__*) the designer agent uses
+
+
+def _auto_checks(project_root: Path, others: list[dict[str, Any]], add) -> None:
+    """Prerequisites of /spec2ship-auto: a Figma server that can draw, Pillow for the visual check, Playwright."""
+    writer = [o for o in others if o["name"] == AUTO_FIGMA_SERVER]
+    if writer:
+        add("auto-figma-writer", "ok",
+            f"'{AUTO_FIGMA_SERVER}' ({writer[0]['source']}) draws the design. Keep its Figma plugin running in the open file.")
+    else:
+        add("auto-figma-writer", "fail",
+            f"Auto mode draws the design in Figma through an MCP server named '{AUTO_FIGMA_SERVER}' (tools "
+            f"mcp__{AUTO_FIGMA_SERVER}__*). None is configured. The bundled Spec2Ship bridge is read-only on purpose.",
+            f"Add your own write-capable Figma MCP server under the name '{AUTO_FIGMA_SERVER}' (`claude mcp add ...`), "
+            "run its plugin in Figma Desktop, and restart Claude Code.", blocking=True)
+    try:
+        import PIL  # type: ignore  # noqa: F401
+        add("auto-pillow", "ok", "Pillow (visual comparison)")
+    except ImportError:
+        add("auto-pillow", "fail", "Pillow is missing; the visual check (`visual-compare`) needs it.",
+            "pip install pillow", blocking=True)
+    pkg = project_root / "package.json"
+    has_pw = False
+    if pkg.is_file():
+        try:
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+            deps = {**(data.get("dependencies") or {}), **(data.get("devDependencies") or {})}
+            has_pw = any(k in deps for k in ("@playwright/test", "playwright"))
+        except (OSError, ValueError):
+            pass
+    if has_pw:
+        add("auto-playwright", "ok", "Playwright is a project dependency (app screenshots)")
+    else:
+        add("auto-playwright", "warn", "Playwright is not a project dependency; the plan must add it to take app screenshots.",
+            "The auto plan adds `@playwright/test` as a dev dependency in its first task.")
+    add("auto-permissions", "pending",
+        "Auto mode runs without prompts only if Claude Code may edit files and run the project's commands. Use a "
+        "throwaway branch or worktree, and allow edits plus the test/build commands (or run in auto mode). The Stop "
+        "hook keeps the run going; raise CLAUDE_CODE_STOP_HOOK_BLOCK_CAP (for example 60) if Claude Code stops it early.")
 
 
 def to_text(res: dict[str, Any]) -> str:

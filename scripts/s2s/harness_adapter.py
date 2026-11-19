@@ -249,15 +249,20 @@ def is_done(status: str) -> bool:
 # ------------------------------------------------------------------------ handoff
 
 def handoff(project_root: Path, ws: Path, tasks: dict[str, Any], run_id: str, plan_hash: str,
-            spec_rel: str | None, previous: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Write the approved plan into the Harness Plans.md ledger, preserving all other content."""
+            spec_rel: str | None, previous: dict[str, Any] | None = None, keep_progress: bool = False) -> dict[str, Any]:
+    """Write the approved plan into the Harness Plans.md ledger, preserving all other content.
+
+    keep_progress (auto-mode fix rounds): tasks Harness already started keep their status markers, as long as the
+    new plan still contains them; new tasks are added as cc:TODO.
+    """
     target = plans_path(project_root)
     existing = target.read_text(encoding="utf-8") if target.exists() else ""
     sec = find_section(existing, run_id) if existing else None
     if sec:
         current_rows = parse_rows(existing[sec[0]:sec[1]])
         started = [r["task"] for r in current_rows if r["status"] != "cc:TODO"]
-        if started:
+        carried = {r["task"]: r["status"] for r in current_rows if r["status"] != "cc:TODO"} if keep_progress else {}
+        if started and not keep_progress:
             raise Spec2ShipError(
                 "Harness already started tasks from this run ("
                 + ", ".join(started)
@@ -269,7 +274,14 @@ def handoff(project_root: Path, ws: Path, tasks: dict[str, Any], run_id: str, pl
         offset = max_phase_number(existing) if existing else 0
         without = existing
     shifted, mapping = renumber(tasks, offset)
-    section = render_section(shifted, run_id, plan_hash, spec_rel)
+    if sec and keep_progress:
+        missing = [t for t in carried if t not in mapping.values()]
+        if missing:
+            raise Spec2ShipError("The new plan drops tasks Harness already started (" + ", ".join(missing)
+                                 + "). Keep them in tasks.json; add fix tasks as new ids.")
+        section = render_section(shifted, run_id, plan_hash, spec_rel, statuses=carried)
+    else:
+        section = render_section(shifted, run_id, plan_hash, spec_rel)
     backup = None
     if existing:
         backup_dir = ws / "execution"

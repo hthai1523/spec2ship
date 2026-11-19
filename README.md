@@ -164,6 +164,37 @@ namespaced form.
 | `/spec2ship-review` | Harness review + traceability review |
 | `/spec2ship-verify` | project-native checks, per-criterion evidence, report |
 | `/spec2ship-status` | state, artifacts, approval, Harness progress, next step |
+| `/spec2ship:spec2ship-auto <idea>` | auto mode: idea → Figma design → Harness → tests → visual match, no prompts |
+
+## Auto mode (preview)
+
+```text
+/spec2ship:spec2ship-auto Customer list with search and paging --max-rounds 3 --threshold 0.92
+```
+
+One command runs the whole loop without further prompts:
+
+1. Requirements from the idea. Open questions become recorded assumptions.
+2. Claude draws one frame per screen on a new page of the open Figma file and exports reference PNGs.
+3. Plan, then automatic approval. The approval is labeled `auto-mode`; your typed command is what authorized it.
+4. Harness implements the tasks (`harness-work all --no-commit`).
+5. Project tests, then a Playwright screenshot of every screen and `visual-compare` against its Figma frame.
+6. If anything fails, a fix round adds tasks for the differences and Harness runs again, up to `--max-rounds`.
+
+It stops at **COMPLETED** (tests pass, every criterion has evidence, every screen reaches the similarity threshold)
+or **BLOCKED** (round limit reached, or something needs you). A `Stop` hook keeps Claude going between steps,
+with a bounded number of continuations.
+
+Requirements beyond the normal setup:
+- **A Figma MCP server that can draw, named `figma-mcp-go`,** with its plugin running in Figma Desktop. The bundled
+  bridge is read-only on purpose. The designer agent has no delete tools and draws only on its own page.
+- **Pillow** (`pip install pillow`) for `visual-compare`. Playwright in the project; if missing, the plan adds it.
+- **Permission to edit files and run the project's commands without prompts.** Use a throwaway branch or worktree.
+  If Claude Code stops the loop early, raise `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (for example 60).
+
+`visual-compare` scales each screenshot to the frame width and counts pixels that differ by more than a tolerance.
+Browsers and Figma render text differently, so 1.0 is never reached. Treat the default 0.92 as a starting point.
+Auto mode never pushes, deploys, or commits.
 
 ## How the approval gate works
 
@@ -209,7 +240,7 @@ namespaced form.
 ## What is tested
 
 Run `python -m unittest discover -s tests -t .`. The suite has unit, artifact-validation, integration and smoke tests,
-with no model calls and no network beyond localhost (80 tests). It covers:
+with no model calls and no network beyond localhost (93 tests). It covers:
 - parsers: EN/VI fixtures, scanned PDF, built-in PDF fallback;
 - Figma URL handling and file-key matching;
 - the state machine;
@@ -307,8 +338,12 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
    Claude không thể duyệt thay anh/chị.
 7. **Thực thi và kiểm chứng:** chạy `/spec2ship-work` để giao việc cho Harness, sau đó `/spec2ship-review` và
    `/spec2ship-verify`. Báo cáo cuối nằm ở `.spec2ship/reports/report.md`.
-8. **Đo hiệu quả trên ticket thật:** xem [docs/EVALUATION.md](docs/EVALUATION.md).
-9. **Cập nhật plugin:** `/plugin marketplace update spec2ship-marketplace`, rồi
+8. **Chế độ auto:** `/spec2ship:spec2ship-auto <ý tưởng>` chạy một mạch từ ý tưởng, vẽ design trên Figma, giao Harness
+   code, chạy test, rồi so ảnh chụp app với Figma. Nếu còn khác thì tự sửa thêm vòng, tối đa `--max-rounds`. Cần thêm
+   một Figma MCP có quyền ghi tên `figma-mcp-go`, Pillow, và cho phép Claude sửa file, chạy lệnh mà không hỏi. Xem mục
+   [Auto mode](#auto-mode-preview).
+9. **Đo hiệu quả trên ticket thật:** xem [docs/EVALUATION.md](docs/EVALUATION.md).
+10. **Cập nhật plugin:** `/plugin marketplace update spec2ship-marketplace`, rồi
    `/plugin update spec2ship@spec2ship-marketplace`.
 
 ## Documentation

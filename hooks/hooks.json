@@ -1,5 +1,5 @@
 {
-  "description": "Spec2Ship approval gate: blocks Harness execution of unapproved/drifted Spec2Ship plans and records developer approval intent.",
+  "description": "Spec2Ship approval gate: blocks Harness execution of unapproved/drifted Spec2Ship plans and records developer approval intent; records the developer's auto-mode authorization and keeps an auto run going until it completes or blocks.",
   "hooks": {
     "PreToolUse": [
       {
@@ -19,6 +19,17 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh\" prompt",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh\" stop",
             "timeout": 30
           }
         ]

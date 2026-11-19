@@ -6,10 +6,12 @@ import unittest
 from tests.helpers import REPO
 
 COMMANDS = ["spec2ship", "spec2ship-setup", "spec2ship-analyze", "spec2ship-plan", "spec2ship-approve",
-            "spec2ship-work", "spec2ship-review", "spec2ship-verify", "spec2ship-status"]
+            "spec2ship-work", "spec2ship-review", "spec2ship-verify", "spec2ship-status", "spec2ship-auto"]
 SKILLS = ["spec2ship-workflow", "ba-analysis", "figma-analysis", "requirement-mapping", "fullstack-planning",
-          "implementation-verification", "delivery-report"]
+          "implementation-verification", "delivery-report", "figma-design", "visual-verification"]
 AGENTS = ["ba-analyst", "figma-analyst", "architecture-analyst", "requirement-mapper", "acceptance-reviewer"]
+# Auto mode draws the design through the developer's own write-capable server; only these files may name it.
+AUTO_FIGMA_FILES = {"skills/figma-design/SKILL.md", "agents/figma-designer.md", "commands/spec2ship-auto.md"}
 
 
 def frontmatter(path):
@@ -40,8 +42,9 @@ class PluginLayout(unittest.TestCase):
             self.assertTrue(fm.get("description"), c)
             if "spec2ship.py" in text:
                 self.assertIn("${CLAUDE_PLUGIN_ROOT}/scripts/spec2ship.py", text, c)
-        fm, _ = frontmatter(REPO / "commands" / "spec2ship-approve.md")
-        self.assertEqual(fm.get("disable-model-invocation"), "true")
+        for c in ("spec2ship-approve", "spec2ship-auto"):
+            fm, _ = frontmatter(REPO / "commands" / f"{c}.md")
+            self.assertEqual(fm.get("disable-model-invocation"), "true", c)
 
     def test_skills_and_agents(self):
         for s in SKILLS:
@@ -58,7 +61,8 @@ class PluginLayout(unittest.TestCase):
     def test_hooks_reference_existing_scripts(self):
         hooks = json.loads((REPO / "hooks" / "hooks.json").read_text(encoding="utf-8"))
         cmds = [h["command"] for groups in hooks["hooks"].values() for g in groups for h in g["hooks"]]
-        self.assertEqual(len(cmds), 2)
+        self.assertEqual(len(cmds), 3)
+        self.assertEqual(sorted(hooks["hooks"]), ["PreToolUse", "Stop", "UserPromptSubmit"])
         for c in cmds:
             self.assertIn("${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh", c)
         self.assertTrue((REPO / "scripts" / "run-hook.sh").exists())
@@ -85,8 +89,18 @@ class PluginLayout(unittest.TestCase):
         self.assertTrue(mcp_tools and all(t.startswith(prefix) for t in mcp_tools))
         for p in list((REPO / "skills").rglob("*.md")) + list((REPO / "commands").glob("*.md")) + list((REPO / "agents").glob("*.md")):
             text = p.read_text(encoding="utf-8")
-            for stale in ("figma-mcp-go", "mcp__figma-mcp-go__", "npx -y @vkhanhqui"):
+            rel = p.relative_to(REPO).as_posix()
+            stale_refs = ("npx -y @vkhanhqui",) if rel in AUTO_FIGMA_FILES else ("figma-mcp-go", "mcp__figma-mcp-go__", "npx -y @vkhanhqui")
+            for stale in stale_refs:
                 self.assertNotIn(stale, text, f"stale reference {stale!r} in {p}")
+
+    def test_figma_designer_cannot_delete(self):
+        fm, _ = frontmatter(REPO / "agents" / "figma-designer.md")
+        tools = [t.strip() for t in fm["tools"].split(",")]
+        figma = [t for t in tools if t.startswith("mcp__")]
+        self.assertTrue(figma and all(t.startswith("mcp__figma-mcp-go__") for t in figma))
+        self.assertFalse([t for t in figma if "delete" in t or "detach" in t or "ungroup" in t], figma)
+        self.assertNotIn("Bash", tools)
 
     def test_schemas_are_valid_json_and_referenced(self):
         for p in (REPO / "schemas").glob("*.schema.json"):

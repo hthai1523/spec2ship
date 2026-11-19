@@ -38,6 +38,7 @@ stateDiagram-v2
 | evidence | `record-evidence ...`, `record-check ...` | verification/verification.json |
 | report | `report`, `render spec\|plans\|rtm\|all` | reports/report.md |
 | misc | `status`, `transition STATE`, `unblock`, `parse-file PATH`, `figma-url URL` | |
+| auto | `init --auto --instructions IDEA [--max-rounds N] [--threshold T]` (needs the typed `/spec2ship-auto`), `preflight --auto`, `approve --auto`, `visual-compare [--threshold T]` | state.auto, verification/visual.json, diff images |
 
 ## Resume
 

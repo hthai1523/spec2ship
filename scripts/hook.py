@@ -7,6 +7,9 @@ Modes (argv[1]):
              the developer's approval intent.
   prompt   - UserPromptSubmit: records the developer's /spec2ship-approve intent;
              blocks /harness-work etc. under the same conditions as `pretool`.
+             Also records the developer's /spec2ship-auto authorization.
+  stop     - Stop: keeps an auto-mode run going after each reply until it is
+             COMPLETED or BLOCKED (bounded; silent for normal runs).
 
 Hooks fail open on internal errors (never break the user's session) but print
 a warning to stderr.
@@ -22,7 +25,9 @@ from s2s import harness_adapter  # noqa: E402
 from s2s.common import now_iso, workspace_path, write_json  # noqa: E402
 
 APPROVAL_ONLY = "Spec2Ship: only the developer can record plan approval (type /spec2ship:spec2ship-approve <hash>)."
+AUTO_ONLY = "Spec2Ship: only the developer can authorize auto mode (type /spec2ship:spec2ship-auto <idea>)."
 APPROVE_PROMPT = re.compile(r"^\s*/(?:spec2ship:)?spec2ship-approve\b")
+AUTO_PROMPT = re.compile(r"^\s*/(?:spec2ship:)?spec2ship-auto\b")
 EXEC_PROMPT = re.compile(r"^\s*/(?:claude-code-harness:)?(?:%s)\b" % "|".join(harness_adapter.EXEC_SKILLS))
 
 
@@ -52,6 +57,8 @@ def pretool(data):
         path = str(ti.get("file_path") or ti.get("notebook_path") or "").replace("\\", "/")
         if path.endswith("/.approval-intent.json"):
             _deny_pretool(APPROVAL_ONLY)
+        elif path.endswith("/.auto-intent.json") or path.endswith("/.auto-loop.json"):
+            _deny_pretool(AUTO_ONLY)
         elif re.search(r"/\.spec2ship/(state|run)\.json$", path):
             _deny_pretool("Spec2Ship: state.json/run.json are managed by the spec2ship CLI (approval, transitions). "
                           "Do not edit them directly; use the CLI commands.")
@@ -60,6 +67,8 @@ def pretool(data):
         cmd = str(ti.get("command", ""))
         if ".approval-intent" in cmd:
             _deny_pretool(APPROVAL_ONLY)
+        elif ".auto-intent" in cmd or ".auto-loop" in cmd:
+            _deny_pretool(AUTO_ONLY)
         elif re.search(r"\.spec2ship[/\\](state|run)\.json", cmd) and re.search(
                 r"(>|\btee\b|\bsed\s+-i|Set-Content|Out-File|\bmv\b|\bcp\b|Move-Item|Copy-Item|\.write|json\.dump|open\([^)]*['\"][wa])", cmd):
             _deny_pretool("Spec2Ship: state.json/run.json are managed by the spec2ship CLI; do not modify them directly.")
@@ -68,6 +77,9 @@ def pretool(data):
         name = str(ti.get("skill", "")).split(":")[-1]
         if name == "spec2ship-approve":
             _deny_pretool(APPROVAL_ONLY)
+            return
+        if name == "spec2ship-auto":
+            _deny_pretool(AUTO_ONLY)
             return
         if name in harness_adapter.EXEC_SKILLS:
             ok, msg = _guard(data)
@@ -82,10 +94,28 @@ def prompt(data):
         if (ws / "state.json").exists():
             write_json(ws / ".approval-intent.json", {"at": now_iso(), "prompt": text.strip()[:200]})
         return
+    if AUTO_PROMPT.match(text):
+        from s2s import auto
+
+        root, ws = _ws(data)
+        ws.mkdir(parents=True, exist_ok=True)
+        auto.record_intent(ws, text)
+        return
     if EXEC_PROMPT.match(text):
         ok, msg = _guard(data)
         if not ok:
             print(json.dumps({"decision": "block", "reason": msg}))
+
+
+def stop(data):
+    from s2s import auto, state
+
+    root, ws = _ws(data)
+    if not (ws / "state.json").exists():
+        return
+    out = auto.stop_decision(ws, state.load(ws))
+    if out:
+        print(json.dumps(out))
 
 
 def main():
@@ -97,6 +127,8 @@ def main():
             pretool(data)
         elif mode == "prompt":
             prompt(data)
+        elif mode == "stop":
+            stop(data)
     except Exception as e:  # fail open, but say so
         print(f"spec2ship hook warning: {e}", file=sys.stderr)
     return 0

@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import __version__, artifacts, ba_parser, docs_render, figma, harness_adapter, preflight, repo_analyzer, state
+from . import __version__, artifacts, auto, ba_parser, docs_render, figma, harness_adapter, preflight, repo_analyzer, state
 from .common import (
     WORKSPACE_DIRS, Spec2ShipError, canonical_json, now_iso, read_json, sha256_file, sha256_text,
     workspace_path, write_json, write_text,
@@ -97,6 +97,13 @@ def cmd_init(args: argparse.Namespace) -> int:
         except ValueError:
             shown = str(p)
         bas.append({"path": shown, "abs_path": str(p), "sha256": sha256_file(p), "format": ba_parser.SUPPORTED[p.suffix.lower()]})
+    auto_cfg = None
+    if args.auto:
+        if not instructions and not bas:
+            raise Spec2ShipError("Auto mode needs the idea: pass it with --instructions.")
+        if not (ws / "state.json").exists() or args.force_new:
+            # consumed before an old run is archived (the authorization file lives in the workspace)
+            auto_cfg = auto.new_auto(auto.consume_intent(ws), args.max_rounds, args.threshold)
     if (ws / "state.json").exists():
         if not args.force_new:
             st = state.load(ws)
@@ -124,18 +131,23 @@ def cmd_init(args: argparse.Namespace) -> int:
             shown = str(p)
         bas.append({"path": shown, "abs_path": str(p), "sha256": sha256_file(p), "format": "markdown",
                     "origin": "instructions"})
-    if url_info is None:
+    if url_info is None and not auto_cfg:
         write_json(ws / "analysis" / "figma-context.json", {
             "schema_version": "1.0", "url": None, "status": "unavailable",
             "unavailable_reason": "No Figma URL was given for this run.", "nodes": []})
     inputs = {"figma": url_info, "ba": bas, "instructions": args.instructions or "", "project_root": str(root)}
     st = state.create(ws, inputs)
+    if auto_cfg:
+        st["auto"] = auto_cfg
+        st["retries"]["max"] = auto_cfg["max_rounds"]
+        state.save(ws, st)
     write_json(ws / "run.json", {"run_id": st["run_id"], "created_at": now_iso(), "inputs": inputs,
                                  "workspace": str(ws), "spec2ship_version": __version__})
     gi = root / ".gitignore"
     rel_ws = os.path.relpath(ws, root).replace("\\", "/")
     ignored = gi.exists() and any(l.strip().rstrip("/") in (rel_ws, "/" + rel_ws) for l in gi.read_text(encoding="utf-8", errors="replace").splitlines())
     res = {"run_id": st["run_id"], "workspace": str(ws), "figma": url_info, "ba": [b["path"] for b in bas], "state": st["state"],
+           "auto": st.get("auto"),
            "gitignore_hint": None if ignored else f"Spec2Ship does not edit .gitignore. Add '{rel_ws}/' to keep intermediate artifacts out of Git, or commit planning/ and reports/ deliberately."}
     _out(args, res)
     return 0
@@ -143,9 +155,9 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_preflight(args: argparse.Namespace) -> int:
     root, ws = _ctx(args)
-    res = preflight.run(root)
-    if (ws / "state.json").exists() and not args.no_record:
-        st = state.load(ws)
+    st = state.load(ws) if (ws / "state.json").exists() else None
+    res = preflight.run(root, auto=bool(args.auto or (st or {}).get("auto")))
+    if st is not None and not args.no_record:
         st["preflight"] = {"at": now_iso(), "ok": res["ok"], "checks": res["checks"]}
         if st["state"] == "INIT":
             state.transition(st, "PREFLIGHT", "preflight run")
@@ -354,6 +366,8 @@ def cmd_approve(args: argparse.Namespace) -> int:
     if st["state"] != "PLAN_REVIEW":
         raise Spec2ShipError(f"Nothing to approve: state is {st['state']} (expected PLAN_REVIEW). Run /spec2ship-plan.")
     current = plan_hash(ws)
+    if args.auto:
+        return _approve_auto(args, ws, st, current)
     prefix = (args.plan_hash or "").strip().lower()
     if len(prefix) < 8:
         raise Spec2ShipError("Provide at least the first 8 characters of the plan hash shown at review: /spec2ship:spec2ship-approve <hash>")
@@ -379,6 +393,24 @@ def cmd_approve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _approve_auto(args: argparse.Namespace, ws: Path, st: dict[str, Any], current: str) -> int:
+    cfg = st.get("auto")
+    if not cfg:
+        raise Spec2ShipError("This run is not in auto mode; the developer approves it with /spec2ship:spec2ship-approve <hash>.")
+    rep = artifacts.validate_workspace(ws, "approve")
+    if not rep.ok:
+        raise Spec2ShipError("Artifacts are invalid; cannot approve:\n" + "\n".join(rep.errors))
+    blocking = _blocking_questions(ws)
+    files = {rel: sha256_file(ws / rel) for rel in ("analysis/requirements.json", "mappings/figma-mapping.json", "planning/tasks.json", "planning/spec.md")}
+    approval = {"approved_at": now_iso(), "approver": "auto-mode", "mode": "auto", "authorized_at": cfg["authorized_at"],
+                "plan_hash": current, "files": files, "accepted_open_questions": blocking}
+    cfg["approvals"] = cfg.get("approvals", 0) + 1
+    state.mark_approved(st, approval)
+    state.save(ws, st)
+    _out(args, {"state": st["state"], "approval": approval, "next": "handoff, then Harness harness-work all"})
+    return 0
+
+
 def _assert_approval_current(ws: Path, st: dict[str, Any]) -> None:
     appr = st.get("approval")
     if not appr:
@@ -398,7 +430,8 @@ def cmd_handoff(args: argparse.Namespace) -> int:
         raise Spec2ShipError("Harness is not available/compatible: " + "; ".join(h["issues"]) + " Run /spec2ship-setup.")
     tasks = read_json(ws / "planning" / "tasks.json")
     spec_rel = os.path.relpath(ws / "planning" / "spec.md", root).replace("\\", "/")
-    info = harness_adapter.handoff(root, ws, tasks, st["run_id"], st["approval"]["plan_hash"], spec_rel, st.get("harness"))
+    info = harness_adapter.handoff(root, ws, tasks, st["run_id"], st["approval"]["plan_hash"], spec_rel, st.get("harness"),
+                                   keep_progress=bool(st.get("auto")))
     st["harness"] = {**info, "version": h.get("version")}
     if st["state"] == "APPROVED":
         state.transition(st, "EXECUTION", "approved plan handed to Harness")
@@ -468,6 +501,8 @@ def cmd_status(args: argparse.Namespace) -> int:
         "VERIFICATION": "/spec2ship-verify", "BLOCKED": "resolve blockers, then `spec2ship.py unblock`", "COMPLETED": "done — see reports/report.md",
     }
     res["next"] = nxt.get(st["state"])
+    if st.get("auto"):
+        res["auto"] = {**st["auto"], "fix_rounds_used": st["retries"].get("verification", 0), "next_step": auto.next_step(ws, st)}
     _out(args, res)
     return 0
 
@@ -558,6 +593,26 @@ def cmd_record_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_visual_compare(args: argparse.Namespace) -> int:
+    root, ws = _ctx(args)
+    st = state.load(ws)
+    threshold = args.threshold or (st.get("auto") or {}).get("threshold") or auto.DEFAULT_THRESHOLD
+    res = auto.compare_all(ws, root, threshold)
+    ver = _load_ver(ws)
+    for r in res["screens"]:
+        summary = (f"{r['screen']}: similarity {r['score']:.3f} (threshold {threshold})" if "score" in r
+                   else f"{r['screen']}: {r.get('error')}")
+        ver.setdefault("checks", []).append({"name": f"visual:{r['screen']}", "layer": "visual", "status": r["status"],
+                                             "command": "spec2ship.py visual-compare", "exit_code": 0 if r["status"] == "PASS" else 1,
+                                             "summary": summary, "log_file": str(ws / "verification" / "visual.json"),
+                                             "recorded_at": now_iso()})
+    write_json(ws / "verification" / "verification.json", ver)
+    lines = [f"{r['status']:8} {r['screen']:24} " + (f"{r['score']:.3f}" if "score" in r else r.get("error", "")) for r in res["screens"]]
+    lines.append(("MATCH" if res["ok"] else "NO MATCH") + f" (threshold {threshold}, diff images in verification/screens/)")
+    _out(args, res, "\n".join(lines))
+    return 0 if res["ok"] else 1
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     root, ws = _ctx(args)
     st = state.load(ws)
@@ -599,10 +654,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--ba", action="append", help="BA document (.pdf/.docx/.md); repeatable; optional when --instructions is given")
     s.add_argument("--instructions", help="developer instructions; without --ba they are the requirement source")
     s.add_argument("--force-new", action="store_true")
+    s.add_argument("--auto", action="store_true", help="auto mode (needs the developer's typed /spec2ship-auto)")
+    s.add_argument("--max-rounds", type=int, default=auto.DEFAULT_MAX_ROUNDS, help="auto mode: fix rounds after the first verification")
+    s.add_argument("--threshold", type=float, default=auto.DEFAULT_THRESHOLD, help="auto mode: visual similarity needed per screen")
     s.set_defaults(fn=cmd_init)
 
     s = sub.add_parser("preflight")
     s.add_argument("--no-record", action="store_true")
+    s.add_argument("--auto", action="store_true", help="also check auto-mode prerequisites")
     s.set_defaults(fn=cmd_preflight)
 
     s = sub.add_parser("figma-check", help="record the result of the Figma MCP bridge check")
@@ -630,8 +689,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("plan-review").set_defaults(fn=cmd_plan_review)
 
     s = sub.add_parser("approve")
-    s.add_argument("plan_hash")
+    s.add_argument("plan_hash", nargs="?")
     s.add_argument("--approver")
+    s.add_argument("--auto", action="store_true", help="auto-mode runs only: approve the current plan automatically")
     s.add_argument("--accept-open-questions", action="store_true")
     s.set_defaults(fn=cmd_approve)
 
@@ -671,6 +731,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_record_check)
 
     sub.add_parser("report").set_defaults(fn=cmd_report)
+
+    s = sub.add_parser("visual-compare", help="compare app screenshots with the Figma frames in design/screens.json")
+    s.add_argument("--threshold", type=float)
+    s.set_defaults(fn=cmd_visual_compare)
 
     s = sub.add_parser("parse-file", help="parse one BA document without a run")
     s.add_argument("path")
