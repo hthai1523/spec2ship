@@ -5,6 +5,24 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-25
+
+### Fixed
+- **Harness 5.x is detected.** Upstream now publishes Harness as `harness` (5.16.0); Spec2Ship only looked for
+  `claude-code-harness`, so a fresh install following the README was BLOCKED at preflight. Both names are accepted,
+  and the preflight `harness` line names the skills to call (`harness:harness-work` on 5.x).
+- **Approval gate covers `/harness:harness-work`**, `/harness:breezing` and `/harness:harness-loop` typed by the
+  developer (the prompt hook only recognised the `claude-code-harness:` prefix).
+- **Installers and the preflight fix text** install `harness@claude-code-harness-marketplace` (the old id no longer
+  exists in the marketplace).
+
+### Notes
+- Harness 5.16.0: the Plans.md format (same 5-column table and markers), skill names and
+  `harness-work all --no-commit` were checked against its sources, and detection was checked on a real install.
+  It has not been run end-to-end with Spec2Ship; preflight says so.
+- **Tests:** 97 automated tests in total.
+
+
 ## [0.5.1] - 2026-11-25
 
 ### Changed

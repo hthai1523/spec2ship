@@ -6,7 +6,7 @@
 #   bash install/install.sh --check-only # report only
 #
 # Checks: Claude Code CLI, Git, Python 3.9+, Node.js 20+ (bundled figma-mcp-go via npx), pypdf (optional), Figma Desktop
-# (optional, macOS), the claude-code-harness plugin and the Spec2Ship plugin. Uses Homebrew (macOS) or apt/dnf
+# (optional, macOS), the Harness plugin (harness) and the Spec2Ship plugin. Uses Homebrew (macOS) or apt/dnf
 # (Linux). Nothing is downloaded unless you confirm. The script never reads .env files or secrets.
 set -uo pipefail
 YES=0; CHECK_ONLY=0
@@ -83,11 +83,11 @@ fi
 
 if has claude; then
   PLUGINS="$(claude plugin list 2>&1)"
-  if echo "$PLUGINS" | grep -q "claude-code-harness"; then say OK "claude-code-harness plugin" "installed"
-  elif confirm "Install the claude-code-harness plugin?"; then
-    claude plugin marketplace add "$HARNESS_MARKETPLACE" && claude plugin install "claude-code-harness@claude-code-harness-marketplace" \
-      && say INSTALLED "claude-code-harness plugin" "installed" || { say FAILED "claude-code-harness plugin" "see output above"; TODO+=("claude-code-harness plugin"); }
-  else say SKIPPED "claude-code-harness plugin" "/plugin install claude-code-harness@claude-code-harness-marketplace"; TODO+=("claude-code-harness plugin"); fi
+  if echo "$PLUGINS" | grep -q "claude-code-harness"; then say OK "Harness plugin" "installed"
+  elif confirm "Install the Harness plugin (harness)?"; then
+    claude plugin marketplace add "$HARNESS_MARKETPLACE" && claude plugin install "harness@claude-code-harness-marketplace" \
+      && say INSTALLED "Harness plugin" "installed" || { say FAILED "Harness plugin" "see output above"; TODO+=("Harness plugin"); }
+  else say SKIPPED "Harness plugin" "/plugin install harness@claude-code-harness-marketplace"; TODO+=("Harness plugin"); fi
 
   if echo "$PLUGINS" | grep -q "spec2ship@"; then say OK "Spec2Ship plugin" "installed (update: claude plugin update spec2ship@spec2ship-marketplace)"
   elif confirm "Install the Spec2Ship plugin?"; then

@@ -33,7 +33,8 @@ FIGMA_PREFIX = "mcp__plugin_spec2ship_figma-mcp-go__"
 FIGMA_READ = re.compile(r"^(get|search|scan)_")
 FIGMA_READ_ONLY = ("Spec2Ship: the bundled figma-mcp-go server is used read-only. Design edits are allowed only "
                    "inside an auto run started by the developer (/spec2ship:spec2ship-auto).")
-EXEC_PROMPT = re.compile(r"^\s*/(?:claude-code-harness:)?(?:%s)\b" % "|".join(harness_adapter.EXEC_SKILLS))
+EXEC_PROMPT = re.compile(r"^\s*/(?:(?:%s):)?(?:%s)\b" % ("|".join(harness_adapter.PLUGIN_NAMES),
+                                                        "|".join(harness_adapter.EXEC_SKILLS)))
 
 
 def _ws(data):

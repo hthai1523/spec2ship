@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Checks: Claude Code CLI, Git (Git Bash runs the plugin hooks), Python 3.9+, Node.js 20+ (bundled figma-mcp-go via npx),
-  pypdf (better PDF extraction, optional), Figma Desktop (optional, for design capture), the claude-code-harness
+  pypdf (better PDF extraction, optional), Figma Desktop (optional, for design capture), the Harness (harness)
   plugin and the Spec2Ship plugin.
   Missing tools are installed with winget after a confirmation (use -Yes to accept all, -CheckOnly to only report).
   Nothing is downloaded unless you confirm. The script never reads .env files or secrets.
@@ -128,12 +128,12 @@ if (-not $SkipFigma) {
 # 7. Plugins
 if (Get-Cmd "claude") {
   $plugins = (& claude plugin list 2>&1 | Out-String)
-  if ($plugins -match "claude-code-harness") { Add-Result "claude-code-harness plugin" "OK" "installed" }
-  elseif (Confirm-Step "Install the claude-code-harness plugin?") {
+  if ($plugins -match "claude-code-harness") { Add-Result "Harness plugin" "OK" "installed" }
+  elseif (Confirm-Step "Install the Harness plugin (harness)?") {
     & claude plugin marketplace add $HarnessMarketplace
-    & claude plugin install "claude-code-harness@claude-code-harness-marketplace"
-    Add-Result "claude-code-harness plugin" ($(if ($LASTEXITCODE -eq 0) { "INSTALLED" } else { "FAILED" })) "claude-code-harness@claude-code-harness-marketplace"
-  } else { Add-Result "claude-code-harness plugin" ($(if ($CheckOnly) { "MISSING" } else { "SKIPPED" })) "/plugin install claude-code-harness@claude-code-harness-marketplace" }
+    & claude plugin install "harness@claude-code-harness-marketplace"
+    Add-Result "Harness plugin" ($(if ($LASTEXITCODE -eq 0) { "INSTALLED" } else { "FAILED" })) "harness@claude-code-harness-marketplace"
+  } else { Add-Result "Harness plugin" ($(if ($CheckOnly) { "MISSING" } else { "SKIPPED" })) "/plugin install harness@claude-code-harness-marketplace" }
 
   if ($plugins -match "spec2ship@") { Add-Result "Spec2Ship plugin" "OK" "installed (update: claude plugin update spec2ship@spec2ship-marketplace)" }
   elseif (Confirm-Step "Install the Spec2Ship plugin?") {

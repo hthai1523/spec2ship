@@ -11,7 +11,8 @@ argument-hint: (no arguments)
    fails, stop and explain.
 2. If state is EXECUTION: every Spec2Ship task in Plans.md should be `cc:完了`. List any that are not and ask whether
    to continue reviewing a partial implementation. Then `S2S transition REVIEW`.
-3. Run Harness review: the `claude-code-harness:harness-review` skill (`code`). Summarize its verdict.
+3. Run Harness review: the `harness-review` skill (`harness:harness-review` on Harness 5.x,
+   `claude-code-harness:harness-review` on 4.x; the preflight `harness` line names it) with `code`. Summarize its verdict.
 4. Spec2Ship review (use the `acceptance-reviewer` agent for an independent read):
    - For each in-scope requirement, find the changed files/functions implementing it (`git diff` against the base
      branch). Write `mappings/code-evidence.json` as

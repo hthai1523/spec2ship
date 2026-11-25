@@ -38,17 +38,17 @@ def run_cli(project, *args, env=None):
     return code, out.getvalue(), err.getvalue()
 
 
-def fake_claude_config(base: Path, harness_version="4.12.11", with_figma=True, project=None):
+def fake_claude_config(base: Path, harness_version="4.12.11", with_figma=True, project=None, harness_plugin="claude-code-harness"):
     """Create an isolated CLAUDE_CONFIG_DIR with a fake Harness install."""
     cfg = base / "claude-config"
-    inst = cfg / "plugins" / "cache" / "claude-code-harness-marketplace" / "claude-code-harness" / harness_version
+    inst = cfg / "plugins" / "cache" / "claude-code-harness-marketplace" / harness_plugin / harness_version
     for s in ("harness-plan", "harness-work", "harness-review", "harness-sync"):
         (inst / "skills" / s).mkdir(parents=True, exist_ok=True)
         (inst / "skills" / s / "SKILL.md").write_text(f"---\nname: {s}\n---\n", encoding="utf-8")
     (cfg / "plugins").mkdir(parents=True, exist_ok=True)
     (cfg / "plugins" / "installed_plugins.json").write_text(json.dumps({
         "version": 2,
-        "plugins": {"claude-code-harness@claude-code-harness-marketplace": [
+        "plugins": {f"{harness_plugin}@claude-code-harness-marketplace": [
             {"scope": "user", "installPath": str(inst), "version": harness_version}]},
     }), encoding="utf-8")
     if with_figma and project is not None:  # the user's own (non Spec2Ship) Figma server

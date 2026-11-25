@@ -125,6 +125,18 @@ class DetectTests(unittest.TestCase):
         self.assertTrue(h["compatible"])
         self.assertIn("not in the tested list", h["warning"])
 
+    def test_detects_harness_5_under_its_new_name(self):
+        os.environ["CLAUDE_CONFIG_DIR"] = str(fake_claude_config(self.tmp, "5.16.0", harness_plugin="harness"))
+        h = ha.detect_harness()
+        self.assertTrue(h["compatible"], h)
+        self.assertEqual((h["plugin"], h["skill_prefix"], h["key"]), ("harness", "harness:", "harness@claude-code-harness-marketplace"))
+        self.assertIn("checked against its sources", h["warning"])
+        other = self.tmp / "empty"
+        (other / "plugins").mkdir(parents=True)
+        (other / "plugins" / "installed_plugins.json").write_text(json.dumps({"version": 2, "plugins": {}}), encoding="utf-8")
+        os.environ["CLAUDE_CONFIG_DIR"] = str(other)
+        self.assertIn("plugin `harness`", ha.detect_harness()["issues"][0])
+
     def test_missing_and_disabled(self):
         os.environ["CLAUDE_CONFIG_DIR"] = str(self.tmp / "none")
         self.assertFalse(ha.detect_harness()["installed"])

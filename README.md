@@ -12,7 +12,7 @@ Spec2Ship is a Claude Code plugin.
 - **After approval:** execution is delegated to claude-code-harness. Spec2Ship then records review and test evidence
   and writes a delivery report that keeps *implemented*, *verified*, *blocked* and *deferred* apart.
 
-> Status: **0.5.1 preview.** Two parts are not yet verified end-to-end: live Figma capture, and Harness executing a
+> Status: **0.5.2 preview.** Two parts are not yet verified end-to-end: live Figma capture, and Harness executing a
 > handed-off plan. See [What is tested](#what-is-tested) and [Limitations](#limitations).
 >
 > **Changed in 0.5.1 (temporary):** the Figma server is **figma-mcp-go** again (`npx -y @vkhanhqui/figma-mcp-go@0.1.3`),
@@ -52,7 +52,7 @@ the Figma manifest path to import.
 | Python ≥ 3.9 | local helper scripts (stdlib only) | winget / brew / apt | 3.14.5 |
 | Node.js ≥ 18 (with npx) | runs the bundled figma-mcp-go server (downloaded by npx on first start) | winget / brew / apt | 24.16.0 |
 | Git (Windows: Git Bash) | hook launcher | winget / brew / apt | 2.54.0 |
-| [claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) plugin | task ledger, Work, Review | `claude plugin install` | 4.12.11 (≥ 4.0 accepted) |
+| [Harness](https://github.com/Chachamaru127/claude-code-harness) plugin (`harness`; 4.x was `claude-code-harness`) | task ledger, Work, Review | `claude plugin install` | 4.12.11 run end-to-end; 5.16.0 checked against its sources (≥ 4.0 accepted) |
 | Figma Desktop + the "Figma MCP Go" plugin (in `plugins/`) | design capture (the browser version cannot run development plugins) | winget / brew cask; plugin import is manual | — |
 | `pdftotext` (poppler) or `pypdf`, optional | more reliable PDF text extraction | `pip install --user pypdf` | poppler (Git for Windows) |
 
@@ -238,7 +238,7 @@ Auto mode never pushes, deploys, or commits.
 ## What is tested
 
 Run `python -m unittest discover -s tests -t .`. The suite has unit, artifact-validation, integration and smoke tests,
-with no model calls and no network beyond localhost (96 tests). It covers:
+with no model calls and no network beyond localhost (97 tests). It covers:
 - parsers: EN/VI fixtures, scanned PDF, built-in PDF fallback;
 - Figma URL handling and file-key matching;
 - the state machine;
@@ -277,6 +277,9 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
   lists are what keep normal runs read-only; hooks fail open).
 - **Harness execution:** `/harness-work` has not been run end-to-end on a handed-off plan in a real session. The
   Plans.md format was verified against the Harness 4.12.11 sources.
+- **Harness 5.x:** the plugin is now published as `harness`. Spec2Ship detects both names and its gate covers
+  `/harness:harness-work`. For 5.16.0 the Plans.md format, skill names and `harness-work all --no-commit` were checked
+  against the sources only; it has not been run with Spec2Ship.
 - **Model-dependent quality:** requirement extraction, mapping and planning depend on the model. The CLI validates
   structure and citations, not business correctness.
 - **BA parsing:** PDF tables are detected heuristically from layout, so complex tables may become paragraphs. There is
@@ -288,7 +291,7 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
 
 | Symptom | Fix |
 |---|---|
-| `[FAIL] harness` | install/enable claude-code-harness, restart Claude Code |
+| `[FAIL] harness` | `/plugin install harness@claude-code-harness-marketplace` (or enable it), restart Claude Code |
 | `[FAIL] node-runtime` | install Node.js 20+ (the installer can do it), restart Claude Code |
 | figma tools missing in `/mcp` | check Node.js 20+, restart Claude Code |
 | `get_metadata` fails / plugin not connected | open Figma Desktop, open the file, run "Figma MCP Go" |

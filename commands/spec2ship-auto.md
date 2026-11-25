@@ -58,8 +58,8 @@ project root.
    - add an e2e test per acceptance criterion where possible, and a screenshot script (see `visual-verification`).
    Then `S2S plan-review`; fix any ERROR and re-run.
 7. **Approve (automatic).** `S2S approve --auto`. The approval is recorded as `auto-mode`, never as the developer.
-8. **Harness work.** `S2S handoff`, then invoke the Harness `harness-work` skill (`claude-code-harness:harness-work`,
-   or `harness:harness-work` on Harness 5.x) with `all --no-commit`
+8. **Harness work.** `S2S handoff`, then invoke the Harness `harness-work` skill (`harness:harness-work` on Harness
+   5.x, `claude-code-harness:harness-work` on 4.x; the preflight `harness` line names it) with `all --no-commit`
    (Harness implements, self-reviews and marks tasks in `Plans.md`). When every task of this run is done in
    `Plans.md` (`S2S status`), run `S2S transition REVIEW`. If the Harness skill is unavailable, mark BLOCKED.
 9. **Verify.** Follow `/spec2ship-review` checks briefly (scope, orphan changes), then `S2S transition VERIFICATION`.

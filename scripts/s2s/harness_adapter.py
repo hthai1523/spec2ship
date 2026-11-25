@@ -1,7 +1,9 @@
 """Thin adapter around Chachamaru127/claude-code-harness.
 
 Everything Spec2Ship knows about Harness lives in this module so upstream
-changes are handled in one place. Verified against claude-code-harness 4.12.11:
+changes are handled in one place. Verified against claude-code-harness 4.12.11
+(run) and, from its sources, Harness 5.16.0 (plugin renamed ``harness``; same
+ledger format, skills and ``harness-work all --no-commit``):
 
 * Plans.md task ledger, v2 5-column table:
   ``| Task | 内容 | DoD | Depends | Status |`` with markers ``cc:TODO``,
@@ -27,9 +29,12 @@ from typing import Any
 
 from .common import Spec2ShipError, now_iso, sha256_text, today, write_text
 
-TESTED_VERSIONS = ["4.12.11"]
+TESTED_VERSIONS = ["4.12.11"]  # run end-to-end with Spec2Ship
+SOURCE_CHECKED_VERSIONS = ["5.16.0"]  # Plans.md format, skills and arguments checked against the sources only
 MIN_VERSION = (4, 0, 0)
-PLUGIN_NAME = "claude-code-harness"
+# Harness 5.x is published as `harness`; 4.x was `claude-code-harness` (same marketplace)
+PLUGIN_NAMES = ("harness", "claude-code-harness")
+INSTALL_ID = "harness@claude-code-harness-marketplace"
 HEADER = "| Task | 内容 | DoD | Depends | Status |"
 SEPARATOR = "|------|------|-----|---------|--------|"
 DONE_MARKERS = ("cc:完了", "pm:確認済")
@@ -77,22 +82,27 @@ def detect_harness(project_root: Path | None = None) -> dict[str, Any]:
         return result
     entries = []
     for key, installs in (data.get("plugins") or {}).items():
-        if key.split("@", 1)[0] == PLUGIN_NAME:
+        if key.split("@", 1)[0] in PLUGIN_NAMES:
             for inst in installs if isinstance(installs, list) else [installs]:
                 entries.append((key, inst))
     if not entries:
-        result["issues"].append("claude-code-harness is not installed.")
+        result["issues"].append("Harness (plugin `harness`, formerly `claude-code-harness`) is not installed.")
         return result
     key, inst = sorted(entries, key=lambda e: _parse_version(e[1].get("version", "")))[-1]
     path = Path(inst.get("installPath", ""))
     version = inst.get("version", "")
-    result.update({"installed": True, "key": key, "version": version, "install_path": str(path), "scope": inst.get("scope")})
+    plugin = key.split("@", 1)[0]
+    result.update({"installed": True, "key": key, "plugin": plugin, "skill_prefix": f"{plugin}:", "version": version,
+                   "install_path": str(path), "scope": inst.get("scope")})
     required = [path / "skills" / s / "SKILL.md" for s in ("harness-plan", "harness-work", "harness-review", "harness-sync")]
     missing = [str(p.relative_to(path)) for p in required if not p.exists()]
     if missing:
         result["issues"].append(f"Harness install is missing expected skills: {', '.join(missing)}")
     if _parse_version(version) < MIN_VERSION:
         result["issues"].append(f"Harness {version} is older than the minimum supported 4.0.0.")
+    elif version in SOURCE_CHECKED_VERSIONS:
+        result["warning"] = (f"Harness {version}: Plans.md format checked against its sources, not yet run end-to-end "
+                             f"with Spec2Ship (tested: {TESTED_VERSIONS}).")
     elif version not in TESTED_VERSIONS:
         result["warning"] = f"Harness {version} is not in the tested list {TESTED_VERSIONS}; Plans.md format will be re-checked."
     enabled = _enabled_state(key, project_root)

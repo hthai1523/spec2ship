@@ -139,11 +139,12 @@ def run(project_root: Path, auto: bool = False) -> dict[str, Any]:
 
     h = harness_adapter.detect_harness(project_root)
     if h["compatible"]:
-        add("harness", "ok", f"{h['key']} {h['version']} at {h['install_path']}" + (f" — {h['warning']}" if h.get("warning") else ""))
+        add("harness", "ok", f"{h['key']} {h['version']} at {h['install_path']}; skills `{h['skill_prefix']}harness-work`, "
+            f"`{h['skill_prefix']}harness-review`" + (f" — {h['warning']}" if h.get("warning") else ""))
     else:
         add("harness", "fail", "; ".join(h["issues"]),
             "Install Harness: `/plugin marketplace add Chachamaru127/claude-code-harness` then "
-            "`/plugin install claude-code-harness@claude-code-harness-marketplace`, restart Claude Code, and re-run /spec2ship-setup.",
+            f"`/plugin install {harness_adapter.INSTALL_ID}`, restart Claude Code, and re-run /spec2ship-setup.",
             blocking=True)
     try:
         add("harness-plans-path", "ok", str(harness_adapter.plans_path(project_root)))
