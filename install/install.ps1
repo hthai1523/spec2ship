@@ -3,7 +3,7 @@
   One-command setup for Spec2Ship on Windows: checks every prerequisite and installs only what is missing.
 
 .DESCRIPTION
-  Checks: Claude Code CLI, Git (Git Bash runs the plugin hooks), Python 3.9+, Node.js 20+ (bundled Figma bridge),
+  Checks: Claude Code CLI, Git (Git Bash runs the plugin hooks), Python 3.9+, Node.js 20+ (bundled figma-mcp-go via npx),
   pypdf (better PDF extraction, optional), Figma Desktop (optional, for design capture), the claude-code-harness
   plugin and the Spec2Ship plugin.
   Missing tools are installed with winget after a confirmation (use -Yes to accept all, -CheckOnly to only report).
@@ -153,6 +153,6 @@ if ($todo.Count -eq 0) {
 }
 Write-Host ""
 Write-Host "Figma (once per machine, manual): Figma Desktop > Plugins > Development > Import plugin from manifest >"
-Write-Host "  <Spec2Ship plugin folder>\vendor\figma-bridge\plugin\manifest.json"
-Write-Host "  (/spec2ship:spec2ship-setup prints the exact path), then run 'Spec2Ship Figma Bridge (read-only)' in your design file."
+Write-Host "  <Spec2Ship plugin folder>\plugins\manifest.json"
+Write-Host "  (/spec2ship:spec2ship-setup prints the exact path), then run 'Figma MCP Go' in your design file."
 if ($todo.Count -gt 0) { exit 1 }

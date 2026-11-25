@@ -43,7 +43,7 @@ replaced by `model-outputs/`. In order, the script:
 
 You need:
 - the plugin installed (see the main README);
-- Figma Desktop running the "Spec2Ship Figma Bridge (read-only)" plugin, on a design file with a customer list,
+- Figma Desktop running the "Figma MCP Go" plugin, on a design file with a customer list,
   a create form and a detail screen.
 
 Then:

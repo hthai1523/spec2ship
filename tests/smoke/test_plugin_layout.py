@@ -11,7 +11,7 @@ SKILLS = ["spec2ship-workflow", "ba-analysis", "figma-analysis", "requirement-ma
           "implementation-verification", "delivery-report", "figma-design", "visual-verification"]
 AGENTS = ["ba-analyst", "figma-analyst", "architecture-analyst", "requirement-mapper", "acceptance-reviewer"]
 # Auto mode draws the design through the developer's own write-capable server; only these files may name it.
-AUTO_FIGMA_FILES = {"skills/figma-design/SKILL.md", "agents/figma-designer.md", "commands/spec2ship-auto.md"}
+FIGMA_PREFIX = "mcp__plugin_spec2ship_figma-mcp-go__"
 
 
 def frontmatter(path):
@@ -68,37 +68,35 @@ class PluginLayout(unittest.TestCase):
         self.assertTrue((REPO / "scripts" / "run-hook.sh").exists())
         self.assertTrue((REPO / "scripts" / "hook.py").exists())
 
-    def test_bundled_figma_bridge_is_vendored_and_referenced(self):
+    def test_bundled_figma_mcp_go_is_pinned_and_referenced(self):
         servers = json.loads((REPO / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]
-        self.assertEqual(list(servers), ["figma-bridge"])
-        cfg = servers["figma-bridge"]
-        self.assertEqual(cfg["command"], "node", "no npx: nothing is downloaded at runtime")
-        self.assertEqual(cfg["args"], ["${CLAUDE_PLUGIN_ROOT}/vendor/figma-bridge/dist/server.mjs"])
-        self.assertEqual(cfg["env"]["FIGMA_BRIDGE_PORT"], "3994")
-        vendor = REPO / "vendor" / "figma-bridge"
-        for f in ("dist/server.mjs", "LICENSE.md", "THIRD_PARTY_LICENSES.md", "UPSTREAM.md", "spec2ship-readonly.patch",
-                  "build.sh", "server/src/readonly.ts", "server/package-lock.json", "plugin/manifest.json"):
-            self.assertTrue((vendor / f).is_file(), f)
-        manifest = json.loads((vendor / "plugin" / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["networkAccess"]["allowedDomains"], ["ws://localhost:3994"])
-        self.assertIn("read-only", manifest["name"])
-        self.assertIn("SPEC2SHIP_READ_ONLY_REQUESTS", (vendor / "plugin" / "src" / "main" / "code.ts").read_text(encoding="utf-8"))
-        prefix = "mcp__plugin_spec2ship_figma-bridge__"
+        self.assertEqual(list(servers), ["figma-mcp-go"])
+        self.assertEqual(servers["figma-mcp-go"], {"command": "npx", "args": ["-y", "@vkhanhqui/figma-mcp-go@0.1.3"]})
+        manifest = json.loads((REPO / "plugins" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["id"], "figma-mcp-go")
+        for f in ("code.js", "index.html"):
+            self.assertTrue((REPO / "plugins" / "dist" / f).is_file(), f)
         fm, _ = frontmatter(REPO / "agents" / "figma-analyst.md")
         mcp_tools = [t.strip() for t in fm["tools"].split(",") if "mcp__" in t]
-        self.assertTrue(mcp_tools and all(t.startswith(prefix) for t in mcp_tools))
+        self.assertTrue(mcp_tools)
+        for t in mcp_tools:
+            self.assertTrue(t.startswith(FIGMA_PREFIX), t)
+            self.assertRegex(t[len(FIGMA_PREFIX):], r"^(get|search|scan)_", "figma-analyst must only read")
         for p in list((REPO / "skills").rglob("*.md")) + list((REPO / "commands").glob("*.md")) + list((REPO / "agents").glob("*.md")):
             text = p.read_text(encoding="utf-8")
-            rel = p.relative_to(REPO).as_posix()
-            stale_refs = ("npx -y @vkhanhqui",) if rel in AUTO_FIGMA_FILES else ("figma-mcp-go", "mcp__figma-mcp-go__", "npx -y @vkhanhqui")
-            for stale in stale_refs:
+            for stale in ("mcp__plugin_spec2ship_figma-bridge__", "mcp__figma-mcp-go__", "Spec2Ship Figma Bridge (read-only)"):
                 self.assertNotIn(stale, text, f"stale reference {stale!r} in {p}")
+
+    def test_figma_edits_are_hook_guarded(self):
+        hooks = json.loads((REPO / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+        matcher = hooks["hooks"]["PreToolUse"][0]["matcher"]
+        self.assertIn(FIGMA_PREFIX, matcher)
 
     def test_figma_designer_cannot_delete(self):
         fm, _ = frontmatter(REPO / "agents" / "figma-designer.md")
         tools = [t.strip() for t in fm["tools"].split(",")]
         figma = [t for t in tools if t.startswith("mcp__")]
-        self.assertTrue(figma and all(t.startswith("mcp__figma-mcp-go__") for t in figma))
+        self.assertTrue(figma and all(t.startswith(FIGMA_PREFIX) for t in figma))
         self.assertFalse([t for t in figma if "delete" in t or "detach" in t or "ungroup" in t], figma)
         self.assertNotIn("Bash", tools)
 

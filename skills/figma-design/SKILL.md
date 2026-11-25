@@ -1,12 +1,13 @@
 ---
 name: figma-design
-description: Auto mode only. Draw the screens for a Spec2Ship run in the open Figma file through the write-capable figma-mcp-go MCP server, export reference PNGs, and write design/screens.json and figma-context.json.
+description: Auto mode only. Draw the screens for a Spec2Ship run in the open Figma file through the figma-mcp-go server bundled with Spec2Ship, export reference PNGs, and write design/screens.json and figma-context.json.
 ---
 
 # Figma design (auto mode)
 
 Inputs: `.spec2ship/analysis/requirements.json`, `analysis/repository-analysis.md` (existing UI conventions, if
-any). Tools: `mcp__figma-mcp-go__*`. The bundled Spec2Ship bridge is read-only and cannot draw.
+any). Tools: `mcp__plugin_spec2ship_figma-mcp-go__*` (the figma-mcp-go server bundled with Spec2Ship). Its write tools work
+only while this auto run is active; a hook blocks them otherwise.
 
 ## Rules
 
@@ -22,7 +23,7 @@ any). Tools: `mcp__figma-mcp-go__*`. The bundled Spec2Ship bridge is read-only a
 
 ## Steps
 
-1. `get_metadata` (fails → report that the figma-mcp-go plugin is not running in Figma Desktop).
+1. `get_metadata` (fails → report that the "Figma MCP Go" plugin is not running in Figma Desktop).
 2. Plan the screens from the requirements: id (kebab-case), route (e.g. `/customers`), the requirements it covers.
 3. Draw each frame: `create_frame` (auto-layout VERTICAL, padding, item spacing), then children with `create_frame`,
    `create_text`, `create_rectangle`, `set_fills`, `set_strokes`, `set_corner_radius`, `set_auto_layout`.

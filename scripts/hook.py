@@ -4,7 +4,8 @@
 Modes (argv[1]):
   pretool  - PreToolUse: blocks Harness execution skills when the Spec2Ship plan
              in Plans.md is unapproved or drifted; blocks the model from forging
-             the developer's approval intent.
+             the developer's approval intent; blocks Figma design edits through
+             the bundled figma-mcp-go server outside an active auto run.
   prompt   - UserPromptSubmit: records the developer's /spec2ship-approve intent;
              blocks /harness-work etc. under the same conditions as `pretool`.
              Also records the developer's /spec2ship-auto authorization.
@@ -28,6 +29,10 @@ APPROVAL_ONLY = "Spec2Ship: only the developer can record plan approval (type /s
 AUTO_ONLY = "Spec2Ship: only the developer can authorize auto mode (type /spec2ship:spec2ship-auto <idea>)."
 APPROVE_PROMPT = re.compile(r"^\s*/(?:spec2ship:)?spec2ship-approve\b")
 AUTO_PROMPT = re.compile(r"^\s*/(?:spec2ship:)?spec2ship-auto\b")
+FIGMA_PREFIX = "mcp__plugin_spec2ship_figma-mcp-go__"
+FIGMA_READ = re.compile(r"^(get|search|scan)_")
+FIGMA_READ_ONLY = ("Spec2Ship: the bundled figma-mcp-go server is used read-only. Design edits are allowed only "
+                   "inside an auto run started by the developer (/spec2ship:spec2ship-auto).")
 EXEC_PROMPT = re.compile(r"^\s*/(?:claude-code-harness:)?(?:%s)\b" % "|".join(harness_adapter.EXEC_SKILLS))
 
 
@@ -50,9 +55,23 @@ def _deny_pretool(reason):
                                              "permissionDecisionReason": reason}}))
 
 
+def _auto_run_active(data):
+    from s2s import auto, state
+
+    root, ws = _ws(data)
+    if not (ws / "state.json").exists():
+        return False
+    st = state.load(ws)
+    return bool(st.get("auto")) and st.get("state") not in auto.TERMINAL
+
+
 def pretool(data):
     tool = data.get("tool_name", "")
     ti = data.get("tool_input") or {}
+    if tool.startswith(FIGMA_PREFIX):
+        if not FIGMA_READ.match(tool[len(FIGMA_PREFIX):]) and not _auto_run_active(data):
+            _deny_pretool(FIGMA_READ_ONLY)
+        return
     if tool in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
         path = str(ti.get("file_path") or ti.get("notebook_path") or "").replace("\\", "/")
         if path.endswith("/.approval-intent.json"):

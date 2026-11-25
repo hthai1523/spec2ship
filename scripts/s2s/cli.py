@@ -179,7 +179,7 @@ def cmd_figma_check(args: argparse.Namespace) -> int:
     rec: dict[str, Any] = {"at": now_iso()}
     if args.error:
         rec.update({"ready": False, "error": args.error,
-                    "fix": "Open Figma Desktop, open the referenced file, run 'Spec2Ship Figma Bridge (read-only)' (Plugins → Development), then retry."})
+                    "fix": "Open Figma Desktop, open the referenced file, run the 'Figma MCP Go' plugin (Plugins → Development), then retry."})
     else:
         m = figma.match_open_file(url_info, args.open_file_name, args.open_file_key)
         if args.user_confirmed:
@@ -666,7 +666,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("figma-check", help="record the result of the Figma MCP bridge check")
     s.add_argument("--open-file-name")
-    s.add_argument("--open-file-key", help="fileKey reported by the bridge's list_files (decisive when present)")
+    s.add_argument("--open-file-key", help="file key reported by get_metadata, if any (decisive when present)")
     s.add_argument("--node-found", choices=["yes", "no"])
     s.add_argument("--error")
     s.add_argument("--user-confirmed", action="store_true")

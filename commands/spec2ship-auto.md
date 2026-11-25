@@ -42,7 +42,7 @@ project root.
      developer to finish or archive it.
    - `No developer authorization for auto mode`: the command was not typed by the developer. Stop.
 2. **Preflight.** `S2S preflight`. If BLOCKED, show the FAIL lines with their fixes and stop (this is the only point
-   where stopping early is expected). Check the Figma writer with `mcp__figma-mcp-go__get_metadata`; if it fails, run
+   where stopping early is expected). Check the Figma writer with `mcp__plugin_spec2ship_figma-mcp-go__get_metadata`; if it fails, run
    `S2S transition BLOCKED --reason "Figma writer not connected: <error>"` and stop.
 3. **Requirements.** `S2S parse-ba` and `S2S repo-analyze`. Follow the `ba-analysis` skill on
    `inputs/developer-requirements.md` to write `analysis/requirements.json`. Turn the idea into concrete requirements

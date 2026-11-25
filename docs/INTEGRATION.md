@@ -48,6 +48,11 @@ History:
   The authors of `gethopp/figma-mcp-bridge` state that its server, leader/follower system and plugin were copied.
 - **0.3.0** therefore vendors the original MIT project instead, as a read-only fork. See
   `vendor/figma-bridge/UPSTREAM.md`.
+- **0.5.1 (temporary)** runs `npx -y @vkhanhqui/figma-mcp-go@0.1.3` again: the read-only fork's Figma plugin was
+  never built, and auto mode needs a server that can draw. Tools: `mcp__plugin_spec2ship_figma-mcp-go__*`; Figma
+  plugin: `plugins/manifest.json` (built figma-mcp-go plugin, PR #5); port 1994. A `PreToolUse` hook denies every
+  tool except `get_*`, `search_*`, `scan_*` outside an active auto run (`tests/integration/test_auto_mode.py`). The
+  table below describes the unused read-only fork.
 
 | Item | Status | Detail |
 |---|---|---|

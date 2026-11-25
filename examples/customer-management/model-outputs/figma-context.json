@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "url": { "url": "https://www.figma.com/design/AbCdEf1234567890/customer-management?node-id=12-345", "kind": "design", "file_key": "AbCdEf1234567890", "name_slug": "customer-management", "node_id": "12:345" },
   "status": "captured",
-  "mcp_server": "spec2ship-figma-bridge",
+  "mcp_server": "figma-mcp-go",
   "open_file": { "name": "Customer Management", "current_page": "App", "match": "high", "match_reason": "Open file key equals the URL file key" },
   "pages": [{ "id": "0:1", "name": "App" }],
   "nodes": [

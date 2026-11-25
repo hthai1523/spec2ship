@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover
     Image = None
 
 IDEA = "Customer list screen with search and paging"
+FIGMA = "mcp__plugin_spec2ship_figma-mcp-go__"
 
 
 def hook(mode, payload, env):
@@ -177,13 +178,37 @@ class AutoMode(unittest.TestCase):
 
     # -------------------------------------------------------------- preflight
 
-    def test_preflight_auto_requires_a_figma_writer(self):
+    def test_preflight_auto_uses_the_bundled_figma_server(self):
+        from unittest import mock
+        from scripts.s2s import preflight
         code, out, _ = run_cli(self.p, "preflight", "--no-record", "--auto")
-        self.assertIn("[OK  ] auto-figma-writer", out)  # TempProject configures a server named figma-mcp-go
-        (self.p / ".mcp.json").unlink()
-        code, out, _ = run_cli(self.p, "preflight", "--no-record", "--auto")
-        self.assertIn("[FAIL] auto-figma-writer", out)
-        self.assertEqual(code, 2)
+        self.assertIn("[OK  ] auto-figma-writer: The bundled figma-mcp-go", out)
+        with mock.patch.object(preflight, "bundled_figma_server", return_value=None):
+            res = preflight.run(self.p, auto=True)
+        writer = [c for c in res["checks"] if c["name"] == "auto-figma-writer"][0]
+        self.assertEqual((writer["status"], writer["blocking"]), ("fail", True))
+
+    # -------------------------------------------------------------- Figma edit guard
+
+    def test_figma_edits_blocked_outside_an_auto_run(self):
+        draw = {"cwd": str(self.p), "tool_name": FIGMA + "create_frame", "tool_input": {}}
+        read = {"cwd": str(self.p), "tool_name": FIGMA + "get_metadata", "tool_input": {}}
+        self.assertEqual(hook("pretool", draw, self.env)["hookSpecificOutput"]["permissionDecision"], "deny")  # no run
+        run_cli(self.p, "init", "--ba", "docs/BA/customer-management.md")  # normal run
+        self.assertEqual(hook("pretool", draw, self.env)["hookSpecificOutput"]["permissionDecision"], "deny")
+        delete = {**draw, "tool_name": FIGMA + "delete_nodes"}
+        self.assertEqual(hook("pretool", delete, self.env)["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIsNone(hook("pretool", read, self.env))
+        self.assertIsNone(hook("pretool", {**read, "tool_name": FIGMA + "scan_text_nodes"}, self.env))
+
+    def test_figma_edits_allowed_during_an_auto_run_only(self):
+        draw = {"cwd": str(self.p), "tool_name": FIGMA + "create_frame", "tool_input": {}}
+        self.start()
+        self.assertIsNone(hook("pretool", draw, self.env))
+        self.cli("preflight")
+        if json.loads((self.ws / "state.json").read_text(encoding="utf-8"))["state"] != "BLOCKED":
+            self.assertEqual(self.cli("transition", "BLOCKED", "--reason", "test")[0], 0)
+        self.assertEqual(hook("pretool", draw, self.env)["hookSpecificOutput"]["permissionDecision"], "deny")
 
 
 @unittest.skipIf(Image is None, "Pillow not installed")

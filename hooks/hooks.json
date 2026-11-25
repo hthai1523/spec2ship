@@ -1,9 +1,9 @@
 {
-  "description": "Spec2Ship approval gate: blocks Harness execution of unapproved/drifted Spec2Ship plans and records developer approval intent; records the developer's auto-mode authorization and keeps an auto run going until it completes or blocks.",
+  "description": "Spec2Ship approval gate: blocks Harness execution of unapproved/drifted Spec2Ship plans and records developer approval intent; keeps the bundled Figma server read-only outside auto runs; records the developer's auto-mode authorization and keeps an auto run going until it completes or blocks.",
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Skill|Write|Edit|MultiEdit|Bash|PowerShell",
+        "matcher": "Skill|Write|Edit|MultiEdit|Bash|PowerShell|mcp__plugin_spec2ship_figma-mcp-go__.*",
         "hooks": [
           {
             "type": "command",

@@ -14,40 +14,39 @@ from . import harness_adapter
 from .common import PLUGIN_ROOT
 from .harness_adapter import claude_config_dir
 
-FIGMA_SERVER = "figma-bridge"  # server name in the plugin's .mcp.json
+FIGMA_SERVER = "figma-mcp-go"  # server name in the plugin's .mcp.json
 # Tool-name prefix of the bundled server (Claude Code: mcp__plugin_<plugin>_<server>__<tool>)
 BUNDLED_TOOL_PREFIX = f"mcp__plugin_spec2ship_{FIGMA_SERVER}__"
-BRIDGE_DIR = PLUGIN_ROOT / "vendor" / "figma-bridge"
-BRIDGE_PORT = 3994
-NODE_MIN_MAJOR = 20  # figma-mcp-bridge server engines.node >= 20
-# Other Figma bridges users may have configured themselves (detected for notices only)
+FIGMA_PACKAGE = "@vkhanhqui/figma-mcp-go"
+FIGMA_PLUGIN_DIR = PLUGIN_ROOT / "plugins"  # figma-mcp-go's Figma Desktop plugin, built (PR #5)
+FIGMA_PORT = 1994
+NODE_MIN_MAJOR = 18  # figma-mcp-go package.json engines.node >= 18
+# Figma servers users may have configured themselves (detected for notices only)
 OTHER_FIGMA_MARKERS = ("figma-mcp-go", "figma-mcp-bridge", "figma-bridge")
-DMCA_PACKAGE = "@vkhanhqui/figma-mcp-go"
 
 
 def bundled_figma_server() -> dict[str, Any] | None:
-    """The read-only Figma bridge shipped in the plugin (vendor/figma-bridge, started by Claude Code via .mcp.json)."""
+    """The figma-mcp-go server in the plugin's .mcp.json (Claude Code starts it with npx when the plugin is enabled)."""
     cfg = _servers_from(_load(PLUGIN_ROOT / ".mcp.json")).get(FIGMA_SERVER)
     if not cfg:
         return None
     args = [str(a) for a in cfg.get("args", []) or []]
-    script = next((a for a in args if a.endswith(".mjs")), "")
-    server_path = Path(script.replace("${CLAUDE_PLUGIN_ROOT}", str(PLUGIN_ROOT))) if script else None
-    manifest = BRIDGE_DIR / "plugin" / "manifest.json"
-    plugin_built = all((BRIDGE_DIR / "plugin" / "dist" / f).is_file() for f in ("code.js", "index.html"))
+    blob = " ".join([str(cfg.get("command", "")), *args])
+    m = re.search(r"figma-mcp-go@([\w.\-]+)", blob)
+    version = m.group(1) if m else None
+    manifest = FIGMA_PLUGIN_DIR / "manifest.json"
+    plugin_built = manifest.is_file() and all((FIGMA_PLUGIN_DIR / "dist" / f).is_file() for f in ("code.js", "index.html"))
     return {"name": FIGMA_SERVER, "source": f"{PLUGIN_ROOT / '.mcp.json'} (bundled with Spec2Ship)",
-            "command": " ".join([str(cfg.get("command", "")), *args]),
-            "server_path": str(server_path) if server_path else None,
-            "server_exists": bool(server_path and server_path.is_file()),
+            "command": blob, "package_version": version, "pinned": bool(version and version != "latest"),
             "uses_npx": "npx" in str(cfg.get("command", "")),
             "figma_plugin_manifest": str(manifest), "figma_plugin_built": plugin_built,
-            "port": BRIDGE_PORT, "tool_prefix": BUNDLED_TOOL_PREFIX}
+            "port": FIGMA_PORT, "tool_prefix": BUNDLED_TOOL_PREFIX}
 
 
 def node_runtime() -> dict[str, Any]:
-    node = shutil.which("node")
-    if not node:
-        return {"ok": False, "detail": "node not found on PATH"}
+    node, npx = shutil.which("node"), shutil.which("npx")
+    if not node or not npx:
+        return {"ok": False, "detail": f"node={'found' if node else 'missing'}, npx={'found' if npx else 'missing'}"}
     try:
         out = subprocess.run([node, "--version"], capture_output=True, text=True, timeout=20).stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
@@ -94,7 +93,7 @@ def find_figma_mcp(project_root: Path) -> list[dict[str, Any]]:
         for name, cfg in servers.items():
             blob = " ".join([str(cfg.get("command", "")), *map(str, cfg.get("args", []) or []), str(cfg.get("url", ""))])
             if any(mk in blob or mk in name for mk in OTHER_FIGMA_MARKERS):
-                found.append({"name": name, "source": src, "command": blob.strip(), "dmca_disabled": DMCA_PACKAGE in blob})
+                found.append({"name": name, "source": src, "command": blob.strip()})
     return found
 
 
@@ -154,45 +153,42 @@ def run(project_root: Path, auto: bool = False) -> dict[str, Any]:
     bundled = bundled_figma_server()
     others = find_figma_mcp(project_root)
     node = node_runtime()
-    if not bundled or not bundled["server_exists"]:
-        add("figma-mcp-config", "fail",
-            "The bundled read-only Figma bridge is missing" + (f" ({bundled['server_path']})" if bundled else " from .mcp.json") + ".",
+    if not bundled:
+        add("figma-mcp-config", "fail", "The bundled figma-mcp-go server is missing from the plugin's .mcp.json.",
             "Reinstall or update Spec2Ship: `/plugin update spec2ship@spec2ship-marketplace`, then restart Claude Code.",
             blocking=True)
     else:
         add("figma-mcp-config", "ok",
-            f"bundled read-only Figma bridge (no download): {bundled['command']} — tools {bundled['tool_prefix']}*, "
-            f"127.0.0.1:{bundled['port']}")
+            f"bundled figma-mcp-go: {bundled['command']} — tools {bundled['tool_prefix']}*, 127.0.0.1:{bundled['port']}. "
+            "Used read-only except in auto runs (a hook blocks design edits otherwise).")
+        add("figma-mcp-source", "warn",
+            f"{FIGMA_PACKAGE} is used temporarily: its GitHub repository was disabled after a DMCA notice, and npx "
+            "downloads the package on first start.",
+            "Nothing to do now; a later Spec2Ship release will replace it.")
         if node["ok"]:
             add("node-runtime", "ok", node["detail"])
         else:
-            add("node-runtime", "fail", f"{node['detail']} — the bundled Figma bridge runs on Node.js {NODE_MIN_MAJOR}+.",
+            add("node-runtime", "fail", f"{node['detail']} — the bundled figma-mcp-go server runs through npx (Node.js {NODE_MIN_MAJOR}+).",
                 f"Install Node.js {NODE_MIN_MAJOR}+ (https://nodejs.org, or `winget install OpenJS.NodeJS.LTS` / "
                 "`brew install node`) and restart Claude Code.", blocking=True)
         if bundled["figma_plugin_built"]:
             add("figma-plugin", "ok", f"Figma plugin to import: {bundled['figma_plugin_manifest']}")
         else:
-            add("figma-plugin", "fail", "The read-only Figma plugin build (vendor/figma-bridge/plugin/dist) is missing.",
-                "Update Spec2Ship, or (maintainers) run `bash vendor/figma-bridge/build.sh plugin`.")
+            add("figma-plugin", "fail", "The figma-mcp-go Figma plugin (plugins/manifest.json and plugins/dist) is missing.",
+                "Update Spec2Ship, then restart Claude Code.")
     for o in others:
-        if o["dmca_disabled"]:
-            add("figma-other-server", "warn",
-                f"You configured '{o['name']}' ({o['source']}) with {DMCA_PACKAGE}; its GitHub repository was disabled "
-                "after a DMCA notice. " + ("Auto mode uses it to draw the design; it is your own server and your choice."
-                                           if auto and o["name"] == AUTO_FIGMA_SERVER else "Spec2Ship does not use it."),
-                f"Remove it unless you need it: `claude mcp remove {o['name']}`.")
-        else:
-            add("figma-other-server", "ok",
-                f"You also configured '{o['name']}' ({o['source']}). It runs separately (port 1994); Spec2Ship only uses "
-                f"its own read-only bridge on port {BRIDGE_PORT}.")
-    manifest = bundled["figma_plugin_manifest"] if bundled else "vendor/figma-bridge/plugin/manifest.json"
+        add("figma-other-server", "ok",
+            f"You also configured '{o['name']}' ({o['source']}). Instances share port {FIGMA_PORT} (one leader, the "
+            "others follow), so it can stay; Spec2Ship uses its own bundled server.",
+            f"Optional: `claude mcp remove {o['name']}`.")
+    manifest = bundled["figma_plugin_manifest"] if bundled else "plugins/manifest.json"
     add("figma-bridge", "pending",
         "Once per machine, in Figma Desktop: Plugins → Development → Import plugin from manifest → "
-        f"{manifest}. Then open the design file and run 'Spec2Ship Figma Bridge (read-only)'. "
-        "Check by calling `get_metadata`; 'No plugin connected' means it is not running.")
+        f"{manifest}. Then open the design file and run the 'Figma MCP Go' plugin. "
+        "Check by calling `get_metadata`; an error means the plugin is not running.")
 
     if auto:
-        _auto_checks(project_root, others, add)
+        _auto_checks(project_root, bundled, add)
 
     g = _git_state(project_root)
     if g.get("repository"):
@@ -208,21 +204,14 @@ def run(project_root: Path, auto: bool = False) -> dict[str, Any]:
     return {"ok": not blocking, "checks": checks, "harness": h, "figma_servers": ([bundled] if bundled else []) + others, "git": g}
 
 
-AUTO_FIGMA_SERVER = "figma-mcp-go"  # MCP server name whose write tools (mcp__figma-mcp-go__*) the designer agent uses
-
-
-def _auto_checks(project_root: Path, others: list[dict[str, Any]], add) -> None:
-    """Prerequisites of /spec2ship-auto: a Figma server that can draw, Pillow for the visual check, Playwright."""
-    writer = [o for o in others if o["name"] == AUTO_FIGMA_SERVER]
-    if writer:
+def _auto_checks(project_root: Path, bundled: dict[str, Any] | None, add) -> None:
+    """Prerequisites of /spec2ship-auto: the Figma server (draws the design), Pillow for the visual check, Playwright."""
+    if bundled:
         add("auto-figma-writer", "ok",
-            f"'{AUTO_FIGMA_SERVER}' ({writer[0]['source']}) draws the design. Keep its Figma plugin running in the open file.")
+            f"The bundled figma-mcp-go ({BUNDLED_TOOL_PREFIX}*) draws the design. Keep its Figma plugin running in the open file.")
     else:
-        add("auto-figma-writer", "fail",
-            f"Auto mode draws the design in Figma through an MCP server named '{AUTO_FIGMA_SERVER}' (tools "
-            f"mcp__{AUTO_FIGMA_SERVER}__*). None is configured. The bundled Spec2Ship bridge is read-only on purpose.",
-            f"Add your own write-capable Figma MCP server under the name '{AUTO_FIGMA_SERVER}' (`claude mcp add ...`), "
-            "run its plugin in Figma Desktop, and restart Claude Code.", blocking=True)
+        add("auto-figma-writer", "fail", "Auto mode draws the design through the bundled figma-mcp-go server, which is missing.",
+            "Reinstall or update Spec2Ship, then restart Claude Code.", blocking=True)
     try:
         import PIL  # type: ignore  # noqa: F401
         add("auto-pillow", "ok", "Pillow (visual comparison)")
@@ -257,5 +246,5 @@ def to_text(res: dict[str, Any]) -> str:
         if c.get("fix") and c["status"] != "ok":
             lines.append(f"       fix: {c['fix']}")
     lines.append("")
-    lines.append("RESULT: " + ("ready (complete the Figma bridge check via MCP)" if res["ok"] else "BLOCKED — fix the FAIL items above"))
+    lines.append("RESULT: " + ("ready (complete the Figma check via MCP)" if res["ok"] else "BLOCKED — fix the FAIL items above"))
     return "\n".join(lines)

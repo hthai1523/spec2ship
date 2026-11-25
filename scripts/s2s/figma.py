@@ -1,6 +1,6 @@
 """Figma URL parsing and open-file matching helpers.
 
-The bundled read-only Figma bridge reads files that are *open* in Figma Desktop
+The bundled figma-mcp-go server reads files that are *open* in Figma Desktop
 through its companion plugin (no REST API, no token). Spec2Ship parses the URL
 locally and then asks Claude to confirm, through the MCP tools, that the open
 file / node matches what the user referenced (by file key when the bridge
@@ -76,7 +76,7 @@ def match_open_file(url_info: dict[str, Any], open_file_name: str | None,
                     open_file_key: str | None = None) -> dict[str, Any]:
     """Compare the referenced file with the file open in Figma Desktop.
 
-    A file key reported by the bridge (`list_files`) is decisive. Otherwise the URL
+    A file key reported by the bridge (`get_metadata`) is decisive. Otherwise the URL
     name slug is compared heuristically with the open file name, and anything but
     'high' must be confirmed by the user.
     """

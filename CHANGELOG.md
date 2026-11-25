@@ -5,6 +5,24 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-25
+
+### Changed
+- **Figma server: back to figma-mcp-go (temporary).** The plugin's `.mcp.json` runs
+  `npx -y @vkhanhqui/figma-mcp-go@0.1.3` again, as in 0.2.0. Tools are `mcp__plugin_spec2ship_figma-mcp-go__*`, and
+  the Figma Desktop plugin to import is `plugins/manifest.json`.
+  - Its GitHub repository was disabled after a DMCA notice, and npx downloads the package on first start. Preflight
+    reports this as `figma-mcp-source` (WARN).
+  - The read-only bridge (`vendor/figma-bridge`) stays in the repository but is not used.
+- **Auto mode draws with the bundled server.** No separate `figma-mcp-go` entry in `~/.mcp.json` is needed;
+  `preflight --auto` checks the bundled server.
+
+### Added
+- **Figma edit guard:** a `PreToolUse` hook denies every figma-mcp-go tool except `get_*`, `search_*` and `scan_*`
+  unless an auto run is active (started by the developer, not COMPLETED or BLOCKED).
+- **Tests:** 96 automated tests in total.
+
+
 ## [0.5.0] - 2026-11-19
 
 ### Added

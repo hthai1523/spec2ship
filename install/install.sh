@@ -5,7 +5,7 @@
 #   bash install/install.sh --yes        # accept every install
 #   bash install/install.sh --check-only # report only
 #
-# Checks: Claude Code CLI, Git, Python 3.9+, Node.js 20+ (bundled Figma bridge), pypdf (optional), Figma Desktop
+# Checks: Claude Code CLI, Git, Python 3.9+, Node.js 20+ (bundled figma-mcp-go via npx), pypdf (optional), Figma Desktop
 # (optional, macOS), the claude-code-harness plugin and the Spec2Ship plugin. Uses Homebrew (macOS) or apt/dnf
 # (Linux). Nothing is downloaded unless you confirm. The script never reads .env files or secrets.
 set -uo pipefail
@@ -104,6 +104,6 @@ else
 fi
 echo
 echo "Figma (once per machine, manual): Figma Desktop > Plugins > Development > Import plugin from manifest >"
-echo "  <Spec2Ship plugin folder>/vendor/figma-bridge/plugin/manifest.json"
-echo "  (/spec2ship:spec2ship-setup prints the exact path), then run 'Spec2Ship Figma Bridge (read-only)' in your design file."
+echo "  <Spec2Ship plugin folder>/plugins/manifest.json"
+echo "  (/spec2ship:spec2ship-setup prints the exact path), then run 'Figma MCP Go' in your design file."
 [ ${#TODO[@]} -eq 0 ]

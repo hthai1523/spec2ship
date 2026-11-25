@@ -39,14 +39,13 @@ Windows if `python3` is unavailable). Run it from the project root with the Bash
    - **No Figma URL:** `init` writes `analysis/figma-context.json` with `status: "unavailable"`. Skip step 4 and the
      design part of step 5.
 3. **Preflight.** Run `S2S preflight`. If the result is BLOCKED, show the FAIL items with their fixes and stop.
-4. **Figma bridge check** (only when the run has a Figma URL). Call the bundled bridge's `list_files` and `get_metadata` tools
-   (`mcp__plugin_spec2ship_figma-bridge__list_files`, `mcp__plugin_spec2ship_figma-bridge__get_metadata`).
-   - Error `No plugin connected` (or the tools are missing): run `S2S figma-check --error "<message>"`. Tell the
-     developer to open the file in Figma Desktop and run "Spec2Ship Figma Bridge (read-only)"; the preflight
-     `figma-bridge` line shows the manifest to import once. Then ask whether to retry or continue without design
-     context.
-   - Success: if the URL has a node id, call `get_node` with it, passing `fileKey` when several files are connected.
-     Then run `S2S figma-check --open-file-name "<file name>" --open-file-key <fileKey> --node-found yes|no`.
+4. **Figma check** (only when the run has a Figma URL). Call the bundled figma-mcp-go `get_metadata` tool
+   (`mcp__plugin_spec2ship_figma-mcp-go__get_metadata`). Use only its read tools (`get_*`, `search_*`, `scan_*`).
+   - Error (plugin not connected) or the tool is missing: run `S2S figma-check --error "<message>"`. Tell the
+     developer to open the file in Figma Desktop and run the "Figma MCP Go" plugin; the preflight `figma-plugin` line
+     shows the manifest to import once. Then ask whether to retry or continue without design context.
+   - Success: if the URL has a node id, call `get_node` with it. Then run
+     `S2S figma-check --open-file-name "<file name>" --node-found yes|no`.
      If the match is `low`/`unknown`, ask the developer to confirm the open file is the referenced design, then
      re-run with `--user-confirmed`.
 5. **Analysis (parallelize independent work).**

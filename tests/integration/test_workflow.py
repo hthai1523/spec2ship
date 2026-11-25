@@ -250,10 +250,10 @@ class PreflightAndInputs(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertIn("[FAIL] harness", out)
             self.assertIn("/plugin install claude-code-harness@claude-code-harness-marketplace", out)
-            self.assertIn("[OK  ] figma-mcp-config: bundled read-only Figma bridge (no download): node", out)
-            self.assertIn("mcp__plugin_spec2ship_figma-bridge__", out)
-            self.assertIn("127.0.0.1:3994", out)
-            self.assertNotIn("npx", out)
+            self.assertIn("[OK  ] figma-mcp-config: bundled figma-mcp-go: npx -y @vkhanhqui/figma-mcp-go@0.1.3", out)
+            self.assertIn("mcp__plugin_spec2ship_figma-mcp-go__", out)
+            self.assertIn("127.0.0.1:1994", out)
+            self.assertIn("[WARN] figma-mcp-source", out)
             self.assertNotIn("figma-other-server", out)
             st = json.loads((tp.ws / "state.json").read_text(encoding="utf-8"))
             self.assertEqual(st["state"], "BLOCKED")
@@ -263,11 +263,11 @@ class PreflightAndInputs(unittest.TestCase):
     def test_bundled_server_needs_node(self):
         tp = TempProject(with_figma=False)
         try:
-            with mock.patch.object(preflight, "node_runtime", return_value={"ok": False, "detail": "node not found on PATH"}):
+            with mock.patch.object(preflight, "node_runtime", return_value={"ok": False, "detail": "node=missing, npx=missing"}):
                 code, out, _ = run_cli(tp.project, "preflight", "--no-record")
             self.assertEqual(code, 2)
             self.assertIn("[FAIL] node-runtime", out)
-            self.assertIn("Install Node.js 20+", out)
+            self.assertIn("Install Node.js 18+", out)
         finally:
             tp.cleanup()
 
@@ -290,29 +290,29 @@ class PreflightAndInputs(unittest.TestCase):
                     mock.patch.object(preflight, "bundled_figma_server", return_value=built):
                 code, out, _ = run_cli(tp.project, "preflight", "--no-record")
             self.assertEqual(code, 0, out)
-            manifest = str(REPO / "vendor" / "figma-bridge" / "plugin" / "manifest.json")
+            manifest = str(REPO / "plugins" / "manifest.json")
             self.assertIn(f"[OK  ] figma-plugin: Figma plugin to import: {manifest}", out)
-            self.assertIn("Spec2Ship Figma Bridge (read-only)", out)
+            self.assertIn("'Figma MCP Go' plugin", out)
         finally:
             tp.cleanup()
 
-    def test_user_figma_mcp_go_is_flagged(self):
+    def test_user_figma_mcp_go_can_stay(self):
         tp = TempProject()  # writes a project .mcp.json with the user's own figma-mcp-go
         try:
             with mock.patch.object(preflight, "node_runtime", return_value=NODE_OK):
                 code, out, _ = run_cli(tp.project, "preflight", "--no-record")
-            self.assertIn("[WARN] figma-other-server", out)
-            self.assertIn("DMCA", out)
-            self.assertIn("claude mcp remove figma-mcp-go", out)
+            self.assertIn("[OK  ] figma-other-server", out)
+            self.assertIn("port 1994", out)
         finally:
             tp.cleanup()
 
-    def test_bundled_config_runs_vendored_server_without_npx(self):
+    def test_bundled_config_runs_pinned_figma_mcp_go(self):
         b = preflight.bundled_figma_server()
-        self.assertTrue(b["server_exists"], b)
-        self.assertFalse(b["uses_npx"])
-        self.assertEqual(b["port"], 3994)
-        self.assertTrue(b["server_path"].endswith(str(Path("vendor") / "figma-bridge" / "dist" / "server.mjs")))
+        self.assertTrue(b["uses_npx"])
+        self.assertEqual(b["package_version"], "0.1.3")
+        self.assertTrue(b["pinned"])
+        self.assertEqual(b["port"], 1994)
+        self.assertTrue(b["figma_plugin_built"], b)  # plugins/manifest.json + plugins/dist (figma-mcp-go plugin)
 
     def test_invalid_inputs_fail_clearly(self):
         tp = TempProject()

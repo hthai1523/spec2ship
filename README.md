@@ -12,14 +12,13 @@ Spec2Ship is a Claude Code plugin.
 - **After approval:** execution is delegated to claude-code-harness. Spec2Ship then records review and test evidence
   and writes a delivery report that keeps *implemented*, *verified*, *blocked* and *deferred* apart.
 
-> Status: **0.5.0 preview.** Two parts are not yet verified end-to-end: live Figma capture, and Harness executing a
+> Status: **0.5.1 preview.** Two parts are not yet verified end-to-end: live Figma capture, and Harness executing a
 > handed-off plan. See [What is tested](#what-is-tested) and [Limitations](#limitations).
 >
-> **New in 0.3.0:**
-> - The Figma bridge is a **vendored, read-only** build of the MIT project
->   [figma-mcp-bridge](https://github.com/gethopp/figma-mcp-bridge). Nothing is downloaded at runtime, and design edits
->   are impossible.
-> - One-command installer, an offline demo, and a measurement guide.
+> **Changed in 0.5.1 (temporary):** the Figma server is **figma-mcp-go** again (`npx -y @vkhanhqui/figma-mcp-go@0.1.3`),
+> as in 0.2.0, and the same server draws the design in auto mode. Its GitHub repository was disabled after a DMCA
+> notice, and npx downloads the package on first start. Outside auto runs a hook blocks every Figma edit tool. The
+> read-only bridge from 0.3.0 stays in `vendor/figma-bridge` but is not used.
 >
 > Vietnamese quick start: [Hướng dẫn nhanh](#hướng-dẫn-nhanh-tiếng-việt).
 
@@ -51,10 +50,10 @@ the Figma manifest path to import.
 |---|---|---|---|
 | Claude Code | plugin host | checks only | 2.1.321 |
 | Python ≥ 3.9 | local helper scripts (stdlib only) | winget / brew / apt | 3.14.5 |
-| Node.js ≥ 20 | runs the **bundled** read-only Figma bridge (no download) | winget / brew / apt | 24.16.0 |
+| Node.js ≥ 18 (with npx) | runs the bundled figma-mcp-go server (downloaded by npx on first start) | winget / brew / apt | 24.16.0 |
 | Git (Windows: Git Bash) | hook launcher | winget / brew / apt | 2.54.0 |
 | [claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) plugin | task ledger, Work, Review | `claude plugin install` | 4.12.11 (≥ 4.0 accepted) |
-| Figma Desktop + the bundled "Spec2Ship Figma Bridge (read-only)" plugin | design capture (the browser version cannot run development plugins) | winget / brew cask; plugin import is manual | — |
+| Figma Desktop + the "Figma MCP Go" plugin (in `plugins/`) | design capture (the browser version cannot run development plugins) | winget / brew cask; plugin import is manual | — |
 | `pdftotext` (poppler) or `pypdf`, optional | more reliable PDF text extraction | `pip install --user pypdf` | poppler (Git for Windows) |
 
 ## Install manually
@@ -82,24 +81,22 @@ Restart Claude Code to apply. Release notes: [CHANGELOG](CHANGELOG.md).
 ### Figma setup
 
 **No MCP configuration needed.**
-- **What is bundled:** Spec2Ship ships a read-only build of
-  [gethopp/figma-mcp-bridge](https://github.com/gethopp/figma-mcp-bridge) v0.0.26 (MIT) in
-  [`vendor/figma-bridge`](vendor/figma-bridge/UPSTREAM.md): source, patch, lockfile and the built server.
-- **How it runs:** Claude Code starts it with `node` when the plugin is enabled. Nothing is downloaded, and no Figma
-  token or API quota is used.
-- **Tools:** they appear as `mcp__plugin_spec2ship_figma-bridge__*`; check with `/mcp`.
-- **Read-only:** the server exposes only 14 read tools, its local endpoint refuses everything else, and the Figma
-  plugin itself refuses every edit.
+- **What is bundled:** the plugin's `.mcp.json` runs the figma-mcp-go MCP server, pinned to
+  `@vkhanhqui/figma-mcp-go@0.1.3` (MIT). Claude Code starts it with the plugin; npx downloads the package on first
+  start, so network access is needed once.
+- **Tools:** they appear as `mcp__plugin_spec2ship_figma-mcp-go__*`; check with `/mcp`.
+- **Edits:** the server can edit designs. Spec2Ship uses only its read tools, and a `PreToolUse` hook denies every
+  other Figma tool unless an auto run started by you is active. The `figma-analyst` agent has read tools only.
 
 One step has to happen inside Figma Desktop:
 
 1. Once per machine: Figma Desktop → *Plugins → Development → Import plugin from manifest…* → select
-   `vendor/figma-bridge/plugin/manifest.json` inside the installed Spec2Ship plugin folder.
-   `/spec2ship:spec2ship-setup` prints the exact path.
-2. Each time you use Spec2Ship: open the design file and run **Spec2Ship Figma Bridge (read-only)**.
+   `plugins/manifest.json` inside the installed Spec2Ship plugin folder. `/spec2ship:spec2ship-setup` prints the exact
+   path.
+2. Each time you use Spec2Ship: open the design file and run **Figma MCP Go**.
 
-The bridge listens on `127.0.0.1:3994`. If you also run figma-mcp-bridge or figma-mcp-go yourself (port 1994),
-they do not interfere.
+The server listens on `127.0.0.1:1994`. If you also configured figma-mcp-go yourself (for example in `~/.mcp.json`),
+it can stay: instances elect one leader on that port and the others follow. Removing yours is optional.
 
 ## Try it: offline demo (2 seconds)
 
@@ -126,7 +123,7 @@ Outputs are committed in [`examples/customer-management/expected/`](examples/cus
 /spec2ship https://www.figma.com/design/FILE_KEY/customer-management?node-id=12-345 --ba docs/BA/customer-management.pdf
 ```
 
-1. **Preflight:** Harness, Node.js, the bundled Figma bridge and its Figma plugin, PDF extractor, git state.
+1. **Preflight:** Harness, Node.js, the bundled figma-mcp-go server and its Figma plugin, PDF extractor, git state.
 2. **BA parsing (local):** requirements with page/section/line citations, acceptance criteria and open questions.
 3. **Figma context:** the open file is matched by file key, and only relevant nodes and prototype flows are read.
    This produces the requirement ↔ node mapping, with evidence and confidence.
@@ -186,8 +183,9 @@ or **BLOCKED** (round limit reached, or something needs you). A `Stop` hook keep
 with a bounded number of continuations.
 
 Requirements beyond the normal setup:
-- **A Figma MCP server that can draw, named `figma-mcp-go`,** with its plugin running in Figma Desktop. The bundled
-  bridge is read-only on purpose. The designer agent has no delete tools and draws only on its own page.
+- **The "Figma MCP Go" plugin running in Figma Desktop** on the file to draw in. The bundled figma-mcp-go server
+  draws the design; its edit tools are allowed only while the auto run is active. The designer agent has no delete
+  tools and draws only on its own page.
 - **Pillow** (`pip install pillow`) for `visual-compare`. Playwright in the project; if missing, the plan adds it.
 - **Permission to edit files and run the project's commands without prompts.** Use a throwaway branch or worktree.
   If Claude Code stops the loop early, raise `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (for example 60).
@@ -240,7 +238,7 @@ Auto mode never pushes, deploys, or commits.
 ## What is tested
 
 Run `python -m unittest discover -s tests -t .`. The suite has unit, artifact-validation, integration and smoke tests,
-with no model calls and no network beyond localhost (93 tests). It covers:
+with no model calls and no network beyond localhost (96 tests). It covers:
 - parsers: EN/VI fixtures, scanned PDF, built-in PDF fallback;
 - Figma URL handling and file-key matching;
 - the state machine;
@@ -248,8 +246,8 @@ with no model calls and no network beyond localhost (93 tests). It covers:
 - the Harness adapter: render, renumber, merge, drift, detection;
 - the full CLI vertical slice with the hook gate;
 - repository analysis and plugin layout;
-- **the built Figma bridge:** it is started, it exposes only the read tools, and write calls are refused over MCP and
-  over its local RPC endpoint;
+- **the Figma edit guard:** the hook denies figma-mcp-go edit tools outside an active auto run and allows read tools;
+- **the unused read-only bridge** in `vendor/figma-bridge`: it starts, exposes only read tools, and refuses writes;
 - the offline demo.
 
 `claude plugin validate .` passes.
@@ -257,10 +255,9 @@ with no model calls and no network beyond localhost (93 tests). It covers:
 Verified live in real Claude Code sessions:
 - **Install:** from GitHub (`/plugin marketplace add hthai1523/spec2ship`) into a clean config; the test suite passes
   on the installed copy.
-- **Figma bridge (0.3.0):**
-  - It starts with the plugin through `${CLAUDE_PLUGIN_ROOT}` and exposes exactly the 14 read tools as
-    `mcp__plugin_spec2ship_figma-bridge__*`.
-  - `get_metadata` returns `No plugin connected` while Figma Desktop's plugin is not running.
+- **Figma bridge (0.3.0, no longer used since 0.5.1):** it started with the plugin through `${CLAUDE_PLUGIN_ROOT}`
+  and exposed exactly the 14 read tools. 0.5.1 switched back to figma-mcp-go; that switch is covered by automated
+  tests only.
 - **BA analysis:** `/spec2ship:spec2ship-analyze ba` on the Vietnamese DOCX and the English PDF produced 4
   requirements, every one citing a real document, page, section and quote. It raised 8 open questions and left
   `src/` untouched.
@@ -273,18 +270,19 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
 
 ## Limitations
 
-- **Figma capture:** live design capture with Figma Desktop running has not been tested end-to-end yet. The bridge
-  was verified up to `No plugin connected`.
-- **Figma plugin build:** the plugin's build output (`vendor/figma-bridge/plugin/dist`) must be built by a maintainer
-  (`bash vendor/figma-bridge/build.sh plugin`). Until it is committed, preflight reports `figma-plugin` as missing.
+- **Figma capture:** live design capture with Figma Desktop running has not been tested end-to-end yet. With
+  figma-mcp-go it has only been checked that the server's tools are reachable from Claude Code.
+- **Figma server:** `@vkhanhqui/figma-mcp-go` is used temporarily. Its GitHub repository was disabled after a DMCA
+  notice, npx downloads it on first start, and the server itself can edit designs (Spec2Ship's hook and agent tool
+  lists are what keep normal runs read-only; hooks fail open).
 - **Harness execution:** `/harness-work` has not been run end-to-end on a handed-off plan in a real session. The
   Plans.md format was verified against the Harness 4.12.11 sources.
 - **Model-dependent quality:** requirement extraction, mapping and planning depend on the model. The CLI validates
   structure and citations, not business correctness.
 - **BA parsing:** PDF tables are detected heuristically from layout, so complex tables may become paragraphs. There is
   no OCR. DOCX page numbers are estimates.
-- **Figma plugin limits:** it runs only in Figma Desktop, not in the browser. While it runs, any local process can
-  read the open design through `127.0.0.1:3994`.
+- **Figma plugin limits:** it runs only in Figma Desktop, not in the browser. While it runs, local processes can
+  reach the open design through `127.0.0.1:1994`.
 
 ## Troubleshooting
 
@@ -292,10 +290,9 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
 |---|---|
 | `[FAIL] harness` | install/enable claude-code-harness, restart Claude Code |
 | `[FAIL] node-runtime` | install Node.js 20+ (the installer can do it), restart Claude Code |
-| `[FAIL] figma-plugin` | update Spec2Ship; maintainers: `bash vendor/figma-bridge/build.sh plugin` |
 | figma tools missing in `/mcp` | check Node.js 20+, restart Claude Code |
-| `No plugin connected` / `list_files` is empty | open Figma Desktop, open the file, run "Spec2Ship Figma Bridge (read-only)" |
-| `[WARN] figma-other-server` mentions DMCA | you still have `@vkhanhqui/figma-mcp-go` configured; Spec2Ship does not use it |
+| `get_metadata` fails / plugin not connected | open Figma Desktop, open the file, run "Figma MCP Go" |
+| A Figma edit is denied by Spec2Ship | expected outside auto runs; Spec2Ship only reads designs there |
 | `OCR_REQUIRED` | export a text PDF/DOCX/Markdown or OCR the PDF locally |
 | `section '...' not found` / `possible hallucination` | the requirement's citation does not match the parsed BA; fix the citation |
 | `Plan hash mismatch` | the plan changed after review; run `/spec2ship-plan` and approve the new hash |
@@ -320,12 +317,12 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
    ```
    Cài xong thì khởi động lại Claude Code.
 2. **Figma:**
-   - Không cần cấu hình MCP. Bridge đọc Figma (bản chỉ đọc) đã có sẵn trong plugin, chạy bằng Node.js 20+ và không
-     tải thêm gì.
-   - Chỉ cần nhập plugin vào Figma Desktop một lần: *Plugins → Development → Import plugin from manifest…*, chọn file
-     `vendor/figma-bridge/plugin/manifest.json` trong thư mục plugin. Lệnh `/spec2ship:spec2ship-setup` in ra đường
-     dẫn chính xác.
-   - Mỗi lần dùng: mở file thiết kế rồi chạy **Spec2Ship Figma Bridge (read-only)**.
+   - Không cần cấu hình MCP. Bản 0.5.1 tạm dùng lại server figma-mcp-go (`@vkhanhqui/figma-mcp-go@0.1.3`), có sẵn
+     trong plugin. Server chạy bằng Node.js 18+ và npx tải gói về ở lần chạy đầu.
+   - Nhập plugin vào Figma Desktop một lần: *Plugins → Development → Import plugin from manifest…*, chọn file
+     `plugins/manifest.json` trong thư mục plugin. Lệnh `/spec2ship:spec2ship-setup` in ra đường dẫn chính xác.
+   - Mỗi lần dùng: mở file thiết kế rồi chạy plugin **Figma MCP Go**.
+   - Ngoài chế độ auto, hook chặn mọi tool sửa Figma; Spec2Ship chỉ đọc design.
 3. **Kiểm tra:** chạy `/spec2ship:spec2ship-setup`. Lệnh này liệt kê những gì còn thiếu.
 4. **Xem demo:** `python examples/customer-management/run-demo.py` chạy toàn bộ luồng trên dữ liệu mẫu trong khoảng
    2 giây, không cần Claude hay Figma.
@@ -339,8 +336,8 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
 7. **Thực thi và kiểm chứng:** chạy `/spec2ship-work` để giao việc cho Harness, sau đó `/spec2ship-review` và
    `/spec2ship-verify`. Báo cáo cuối nằm ở `.spec2ship/reports/report.md`.
 8. **Chế độ auto:** `/spec2ship:spec2ship-auto <ý tưởng>` chạy một mạch từ ý tưởng, vẽ design trên Figma, giao Harness
-   code, chạy test, rồi so ảnh chụp app với Figma. Nếu còn khác thì tự sửa thêm vòng, tối đa `--max-rounds`. Cần thêm
-   một Figma MCP có quyền ghi tên `figma-mcp-go`, Pillow, và cho phép Claude sửa file, chạy lệnh mà không hỏi. Xem mục
+   code, chạy test, rồi so ảnh chụp app với Figma. Nếu còn khác thì tự sửa thêm vòng, tối đa `--max-rounds`. Cần plugin
+   Figma MCP Go đang chạy trong Figma Desktop, Pillow, và cho phép Claude sửa file, chạy lệnh mà không hỏi. Xem mục
    [Auto mode](#auto-mode-preview).
 9. **Đo hiệu quả trên ticket thật:** xem [docs/EVALUATION.md](docs/EVALUATION.md).
 10. **Cập nhật plugin:** `/plugin marketplace update spec2ship-marketplace`, rồi
@@ -350,13 +347,15 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md). To measure real tickets against 
 
 [Architecture](docs/ARCHITECTURE.md) · [Workflow](docs/WORKFLOW.md) · [Integration contracts](docs/INTEGRATION.md) ·
 [Evaluation guide](docs/EVALUATION.md) · [Security & threat model](SECURITY.md) ·
-[Figma bridge provenance](vendor/figma-bridge/UPSTREAM.md) · [Product blueprint](docs/PRODUCT_BLUEPRINT.md) ·
+[Read-only bridge provenance (unused)](vendor/figma-bridge/UPSTREAM.md) · [Product blueprint](docs/PRODUCT_BLUEPRINT.md) ·
 [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 ## License
 
 MIT, see [LICENSE](LICENSE).
-- **Figma bridge:** `vendor/figma-bridge` is based on
+- **Figma server and plugin:** `.mcp.json` runs [figma-mcp-go](https://github.com/vkhanhqui/figma-mcp-go)
+  (`@vkhanhqui/figma-mcp-go`, MIT); `plugins/` contains the built Figma plugin of that project.
+- **Read-only bridge (unused since 0.5.1):** `vendor/figma-bridge` is based on
   [figma-mcp-bridge](https://github.com/gethopp/figma-mcp-bridge), MIT, © 2026 GETHOPP LTD.
 - **Other bundled packages:** their licenses are listed in
   [`vendor/figma-bridge/THIRD_PARTY_LICENSES.md`](vendor/figma-bridge/THIRD_PARTY_LICENSES.md).
